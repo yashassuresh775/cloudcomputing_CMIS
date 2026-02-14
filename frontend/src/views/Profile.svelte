@@ -11,7 +11,15 @@
   let error = '';
 
   onMount(async () => {
-    if (!accessToken) return;
+    if (!accessToken) {
+      loading = false;
+      if (user) {
+        profile = user;
+      } else {
+        error = 'Not signed in';
+      }
+      return;
+    }
     try {
       profile = await me(accessToken);
     } catch (e) {
@@ -22,7 +30,7 @@
     }
   });
 
-  $: if (user && !profile) profile = user;
+  $: if (user && !profile && !loading) profile = user;
 </script>
 
 <div class="card">
