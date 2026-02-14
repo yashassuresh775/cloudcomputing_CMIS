@@ -12,6 +12,7 @@ frontend/dist/
 # Env (do not commit secrets)
 .env
 frontend/.env
+*_accessKeys.csv
 
 # Python
 __pycache__/
