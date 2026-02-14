@@ -117,9 +117,6 @@ resource "aws_cognito_user_pool_client" "external" {
     id_token      = "minutes"
     refresh_token = "days"
   }
-
-  read_attributes  = ["email", "email_verified", "custom:role", "custom:class_year", "custom:linked_uin"]
-  write_attributes = ["email", "custom:role", "custom:class_year", "custom:linked_uin"]
 }
 
 # -----------------------------------------------------------------------------
