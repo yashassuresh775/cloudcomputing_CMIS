@@ -260,10 +260,10 @@ resource "aws_apigatewayv2_api" "external" {
   name          = "${var.project_name}-external-api"
   protocol_type = "HTTP"
   cors_configuration {
-    allow_origins = ["*"]
-    allow_methods = ["GET", "POST", "PUT", "OPTIONS"]
-    allow_headers = ["content-type", "authorization", "x-amz-date", "x-api-key"]
-  }
+  allow_headers = ["content-type", "x-amz-date", "authorization", "x-api-key"]
+  allow_methods = ["*"]
+  allow_origins = ["*"] # This allows localhost:5173 to talk to AWS
+}
   tags = var.tags
 }
 
