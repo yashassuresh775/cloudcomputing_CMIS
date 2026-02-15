@@ -17,7 +17,69 @@ Implements:
 - **Backend:** Python 3.12 Lambda (`/services/external-service`)
 - **Frontend:** Svelte + Vite (`/frontend`), themed with CSS variables
 
+### AWS Architecture
+
+```
+                         ┌──────────────┐
+                         │   Browser    │
+                         │  (Svelte)    │
+                         └──────┬───────┘
+                                │ HTTPS
+                                ▼
+┌───────────────────────────────────────────────────────────────────┐
+│                    API Gateway (HTTP API)                          │
+└───────────────────────────────────────────────────────────────────┘
+                                │ AWS_PROXY
+                                ▼
+┌───────────────────────────────────────────────────────────────────┐
+│                    Lambda (external-service)                       │
+└───┬──────────┬──────────┬──────────┬──────────────┬───────────────┘
+    │          │          │          │              │
+    ▼          ▼          ▼          ▼              ▼
+┌───────┐ ┌─────────────┐ ┌────────────┐ ┌───────────────┐ ┌─────────┐
+│Cognito│ │DynamoDB     │ │DynamoDB    │ │DynamoDB       │ │   SES   │
+│User   │ │external_    │ │students    │ │handover_      │ │(optional│
+│Pool   │ │users        │ │            │ │tokens         │ │)        │
+└───────┘ └─────────────┘ └────────────┘ └───────────────┘ └─────────┘
+
+┌───────────────────────────────────────────────────────────────────┐
+│  EventBridge (cron: 1st of month, 08:00 UTC) → Lambda              │
+└───────────────────────────────────────────────────────────────────┘
+```
+
+| Flow | Path |
+|------|------|
+| **Auth** | Browser → API Gateway → Lambda → Cognito + external_users |
+| **Profile (/me)** | Browser + token → API Gateway → Lambda → Cognito + external_users |
+| **Graduation scan** | EventBridge → Lambda → students → handover_tokens → SES/CloudWatch |
+| **Claim (magic link)** | Browser → API Gateway → Lambda → handover_tokens + Cognito + external_users → SES |
+
+| Component | Purpose |
+|-----------|---------|
+| **API Gateway** | Entry point; all routes proxy to Lambda |
+| **Lambda** | Central backend; auth, handover, claim, graduation scan |
+| **Cognito** | User auth (signup, signin, JWT validation) |
+| **DynamoDB external_users** | User profiles (email, role, linked UIN) |
+| **DynamoDB students** | Eligible graduates (uin, grad_date, personal_email) |
+| **DynamoDB handover_tokens** | Magic-link tokens with TTL |
+| **EventBridge** | Monthly trigger for graduation scan |
+| **SES** | Magic-link & confirmation emails (optional) |
+
 ### Quick start
+
+**Shutdown AWS** — remove all resources to avoid charges:
+
+```bash
+./scripts/shutdown.sh
+```
+
+**After AWS shutdown** — bring everything back:
+
+```bash
+./scripts/restart.sh
+```
+
+Shutdown runs `terraform destroy`. Restart runs `terraform apply`, seeds students, updates `frontend/.env`, and starts the frontend. Use `restart.sh --no-apply` if infra already exists, or `--no-frontend` to skip starting the dev server.
 
 1. **Infrastructure (Terraform)**
 

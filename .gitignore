@@ -20,6 +20,10 @@ __pycache__/
 .pytest_cache/
 *.zip
 
+# Script outputs
+out.json
+scripts/out.json
+
 # IDE
 .idea/
 .vscode/
