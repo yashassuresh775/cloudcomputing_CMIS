@@ -221,6 +221,10 @@ def do_graduation_handover(event: dict, body: dict) -> dict:
 def lambda_handler(event: dict, context: object) -> dict:
     path_parts, method, body = _route(event)
 
+    # CORS preflight - return 200 for all OPTIONS requests
+    if method == "OPTIONS":
+        return _response({}, 200)
+
     # Health / root
     if not path_parts and method == "GET":
         return _response({"service": "external", "version": "1.0"})
