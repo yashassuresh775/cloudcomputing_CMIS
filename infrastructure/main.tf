@@ -260,9 +260,9 @@ resource "aws_apigatewayv2_api" "external" {
   name          = "${var.project_name}-external-api"
   protocol_type = "HTTP"
   cors_configuration {
-    allow_origins = var.cors_allow_origins
+    allow_origins = ["*"]
     allow_methods = ["GET", "POST", "PUT", "OPTIONS"]
-    allow_headers = ["content-type", "authorization"]
+    allow_headers = ["content-type", "authorization", "x-amz-date", "x-api-key"]
   }
   tags = var.tags
 }

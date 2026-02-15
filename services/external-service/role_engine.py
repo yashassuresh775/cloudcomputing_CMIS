@@ -6,7 +6,6 @@ Role Logic Engine: assign PARTNER, FORMER_STUDENT, or FRIEND on registration.
 """
 
 import os
-import re
 from typing import Optional, Tuple
 
 # Optional: Team Howdy Company List API URL (stub if not set)
