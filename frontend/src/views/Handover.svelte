@@ -38,7 +38,7 @@
 
 <div class="card">
   <h2>Graduation Handover</h2>
-  <p class="hint">Link this account to your old student record (by UIN) to claim your history and become a Former Student.</p>
+  <p class="hint">Link a new external account to an old Student UIN, transferring your history and changing your primary role to <strong>FORMER_STUDENT</strong>. Use this to claim your student record after graduation.</p>
   {#if error}
     <div class="alert alert-error">{error}</div>
   {/if}

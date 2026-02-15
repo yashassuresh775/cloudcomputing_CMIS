@@ -9,7 +9,7 @@ Implements:
 - **External Auth:** Email/password login via AWS Cognito User Pool.
 
 - **Role Logic Engine:** On registration, assigns PARTNER (email domain in Company List), FORMER_STUDENT (former student box + class year), or FRIEND.
-- **Graduation Handover:** Flow to link a new external account to an old Student UIN and set role to FORMER_STUDENT.
+- **Graduation Handover:** Flow to link a new external account to an old Student UIN, transferring history and changing primary role to FORMER_STUDENT.
 
 ### Stack
 
@@ -51,7 +51,7 @@ Implements:
 | POST | `/auth/signup` | Register (body: `email`, `password`, `formerStudent`, `classYear`) |
 | POST | `/auth/signin` | Sign in (body: `email`, `password`) |
 | GET | `/me` | Current user (header: `Authorization: Bearer <accessToken>`) |
-| POST | `/graduation-handover` | Link UIN (auth required; body: `uin`, optional `classYear`) |
+| POST | `/graduation-handover` | Link external account to Student UIN, transfer history, set role to FORMER_STUDENT (auth required; body: `uin`, optional `classYear`) |
 
 ### Repo structure (per project spec)
 

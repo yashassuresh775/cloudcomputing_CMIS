@@ -67,37 +67,34 @@ def do_signup(body: dict) -> dict:
         return _response({"error": str(e)}, 400)
 
     try:
-        auth.sign_up(email, password)
+        signup_result = auth.sign_up(email, password)
+        user_id = signup_result.get("UserSub")
+        if not user_id:
+            return _response({"error": "Registration failed", "detail": "No UserSub in Cognito response"}, 500)
     except auth.client.exceptions.UsernameExistsException:
         return _response({"error": "An account with this email already exists"}, 409)
     except Exception as e:
         return _response({"error": "Registration failed", "detail": str(e)}, 500)
 
-    # Auto-confirm so user can sign in immediately (no email verification step)
-    auth.admin_confirm_sign_up(email)
+    try:
+        # Auto-confirm so user can sign in immediately (no email verification step)
+        auth.admin_confirm_sign_up(email)
 
-    # Get sub from Cognito (list_users by email)
-    import boto3
-    cognito = boto3.client("cognito-idp")
-    r = cognito.list_users(UserPoolId=USER_POOL_ID, Filter=f'email = "{email}"', Limit=1)
-    users = r.get("Users", [])
-    if not users:
-        return _response({"error": "User created but could not retrieve user id"}, 500)
-    user_id = users[0]["Username"]
-
-    auth.admin_set_custom_attributes(
-        username=email,
-        role=role,
-        class_year=resolved_class_year,
-        linked_uin=None,
-    )
-    db.put_user(
-        user_id=user_id,
-        email=email,
-        role=role,
-        class_year=resolved_class_year,
-        linked_uin=None,
-    )
+        auth.admin_set_custom_attributes(
+            username=email,
+            role=role,
+            class_year=resolved_class_year,
+            linked_uin=None,
+        )
+        db.put_user(
+            user_id=user_id,
+            email=email,
+            role=role,
+            class_year=resolved_class_year,
+            linked_uin=None,
+        )
+    except Exception as e:
+        return _response({"error": "Registration failed", "detail": str(e)}, 500)
 
     return _response({
         "message": "Registration successful",
@@ -167,17 +164,36 @@ def do_me(event: dict) -> dict:
 
     sub = None
     email = None
+    role = "FRIEND"
+    class_year = None
+    linked_uin = None
     for attr in cognito_user.get("UserAttributes", []):
         if attr["Name"] == "sub":
             sub = attr["Value"]
-        if attr["Name"] == "email":
+        elif attr["Name"] == "email":
             email = attr["Value"]
+        elif attr["Name"] == "custom:role":
+            role = attr["Value"]
+        elif attr["Name"] == "custom:class_year":
+            class_year = attr["Value"] or None
+        elif attr["Name"] == "custom:linked_uin":
+            linked_uin = attr["Value"] or None
     if not sub:
         return _response({"error": "User not found"}, 404)
 
     user_record = db.get_user_by_id(sub)
     if not user_record:
-        return _response({"error": "Profile not found"}, 404)
+        # Lazy create: user has Cognito account but no DynamoDB record (e.g. from partial signup)
+        if not email:
+            return _response({"error": "Profile not found"}, 404)
+        db.put_user(
+            user_id=sub,
+            email=email,
+            role=role,
+            class_year=class_year,
+            linked_uin=linked_uin,
+        )
+        user_record = {"email": email, "role": role, "class_year": class_year, "linked_uin": linked_uin}
 
     return _response({
         "userId": sub,
@@ -212,7 +228,11 @@ def do_graduation_handover(event: dict, body: dict) -> dict:
     uin = (body.get("uin") or "").strip()
     class_year = (body.get("classYear") or "").strip() or None
 
-    result = handover.link_uin_to_user(sub, uin, class_year)
+    try:
+        result = handover.link_uin_to_user(sub, uin, class_year)
+    except Exception as e:
+        return _response({"error": "Handover failed", "detail": str(e)}, 500)
+
     if "error" in result:
         return _response({"error": result["error"]}, result.get("status", 400))
     return _response(result)

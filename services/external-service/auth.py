@@ -47,17 +47,22 @@ def admin_set_user_password(username: str, password: str, permanent: bool = True
 
 
 def admin_set_custom_attributes(username: str, role: str, class_year: Optional[str] = None, linked_uin: Optional[str] = None) -> None:
-    """Set custom attributes on Cognito user after sign-up."""
+    """Set custom attributes on Cognito user after sign-up.
+    Silently skips if the user pool does not have these attributes (e.g. older pool schema).
+    Role/class_year/linked_uin are stored in DynamoDB, which is the source of truth."""
     attrs = [{"Name": "custom:role", "Value": role}]
     if class_year is not None:
         attrs.append({"Name": "custom:class_year", "Value": str(class_year)})
     if linked_uin is not None:
         attrs.append({"Name": "custom:linked_uin", "Value": linked_uin})
-    client.admin_update_user_attributes(
-        UserPoolId=USER_POOL_ID,
-        Username=username,
-        UserAttributes=attrs,
-    )
+    try:
+        client.admin_update_user_attributes(
+            UserPoolId=USER_POOL_ID,
+            Username=username,
+            UserAttributes=attrs,
+        )
+    except client.exceptions.InvalidParameterException:
+        pass  # Pool schema may not include custom attrs; DynamoDB has the data
 
 
 def initiate_auth(email: str, password: str) -> Dict[str, Any]:

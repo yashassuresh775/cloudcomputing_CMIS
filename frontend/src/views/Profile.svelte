@@ -49,7 +49,7 @@
     {#if profile.linkedUin}
       <p><strong>Linked UIN:</strong> {profile.linkedUin} (Former Student)</p>
     {:else}
-      <p class="hint">To link your old student history, use <strong>Graduation Handover</strong>.</p>
+      <p class="hint">To link your external account to an old Student UIN and transfer your history as FORMER_STUDENT, use <strong>Graduation Handover</strong>.</p>
     {/if}
     <button class="btn btn-secondary" style="margin-top: 1rem;" on:click={onLogout}>Log out</button>
   {/if}

@@ -17,7 +17,7 @@ export async function signup({ email, password, formerStudent, classYear }) {
     }),
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || 'Registration failed');
+  if (!res.ok) throw new Error(data.detail ? `${data.error || 'Registration failed'}: ${data.detail}` : (data.error || 'Registration failed'));
   return data;
 }
 
@@ -51,6 +51,6 @@ export async function graduationHandover(accessToken, { uin, classYear }) {
     body: JSON.stringify({ uin: String(uin).trim(), classYear: classYear || undefined }),
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || 'Handover failed');
+  if (!res.ok) throw new Error(data.detail ? `${data.error || 'Handover failed'}: ${data.detail}` : (data.error || 'Handover failed'));
   return data;
 }
