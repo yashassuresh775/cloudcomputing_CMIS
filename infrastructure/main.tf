@@ -117,6 +117,13 @@ resource "aws_cognito_user_pool_client" "external" {
     id_token      = "minutes"
     refresh_token = "days"
   }
+
+  # Least privilege: restrict read to email. write_attributes omitted because:
+  # - Custom attrs (custom:role, etc.) are in Terraform schema but the deployed pool
+  #   was created without them (Cognito schema is immutable). Including them causes
+  #   "Invalid read/write attributes specified".
+  # - Standard writable attrs (e.g. preferred_username) also fail for this pool config.
+  read_attributes = ["email"]
 }
 
 # -----------------------------------------------------------------------------
