@@ -35,12 +35,12 @@
     }
     loading = true;
     try {
-      await signup({
-        email: email.trim().toLowerCase(),
-        password,
-        formerStudent,
-        classYear: classYear.trim() || undefined,
-      });
+          await signup({
+            email: email.trim().toLowerCase(),
+            password,
+            formerStudent,
+            classYear: classYear.trim() || undefined,
+          });
       onDone();
     } catch (e) {
       error = e.message || 'Registration failed';
