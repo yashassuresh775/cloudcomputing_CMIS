@@ -41,17 +41,34 @@ export async function me(accessToken) {
   return data;
 }
 
-export async function graduationHandover(accessToken, { uin, classYear }) {
+export async function graduationHandover(accessToken, { uin, classYear, personalEmail, password }) {
   const res = await fetch(`${BASE}/graduation-handover`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${accessToken}`,
     },
-    body: JSON.stringify({ uin: String(uin).trim(), classYear: classYear || undefined }),
+    body: JSON.stringify({
+      uin: String(uin).trim(),
+      classYear: classYear || undefined,
+      personalEmail: (personalEmail || '').trim().toLowerCase() || undefined,
+      password: password || undefined,
+    }),
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.detail ? `${data.error || 'Handover failed'}: ${data.detail}` : (data.error || 'Handover failed'));
+  return data;
+}
+
+/** Request magic link for graduate account (self-service). Returns { success, message, magicLink? } */
+export async function requestMagicLink(email) {
+  const res = await fetch(`${BASE}/graduation-handover/request-link`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: (email || '').trim().toLowerCase() }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Request failed');
   return data;
 }
 

@@ -57,11 +57,18 @@ def put_user(
     table.put_item(Item=item)
 
 
-def update_user_role_and_uin(user_id: str, role: str, linked_uin: str) -> None:
-    """Update user after graduation handover (set FORMER_STUDENT and linked_uin)."""
+def update_user_role_and_uin(
+    user_id: str, role: str, linked_uin: str, personal_email: Optional[str] = None
+) -> None:
+    """Update user after graduation handover (set FORMER_STUDENT, linked_uin, optional personal_email)."""
+    expr = "SET #r = :r, linked_uin = :u"
+    values = {":r": role, ":u": linked_uin}
+    if personal_email:
+        expr += ", personal_email = :p"
+        values[":p"] = personal_email.strip().lower()
     table.update_item(
         Key={"user_id": user_id},
-        UpdateExpression="SET #r = :r, linked_uin = :u",
+        UpdateExpression=expr,
         ExpressionAttributeNames={"#r": "role"},
-        ExpressionAttributeValues={":r": role, ":u": linked_uin},
+        ExpressionAttributeValues=values,
     )

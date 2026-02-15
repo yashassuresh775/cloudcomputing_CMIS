@@ -3,13 +3,24 @@ Graduation Handover: link a new external account to an old Student UIN,
 transferring history and setting primary role to FORMER_STUDENT.
 """
 
+import os
 from typing import Optional
 
+import boto3
 import db
 import auth
 
+STUDENTS_TABLE = os.environ.get("STUDENTS_TABLE", "cmis-external-students")
+dynamo = boto3.resource("dynamodb")
+students_table = dynamo.Table(STUDENTS_TABLE)
 
-def link_uin_to_user(user_id: str, uin: str, class_year: Optional[str] = None) -> dict:
+
+def link_uin_to_user(
+    user_id: str,
+    uin: str,
+    class_year: Optional[str] = None,
+    personal_email: Optional[str] = None,
+) -> dict:
     """
     Link external user to student UIN (graduation handover).
     - Validates user exists and UIN not already linked to another account.
@@ -32,7 +43,27 @@ def link_uin_to_user(user_id: str, uin: str, class_year: Optional[str] = None) -
     if not uin_clean:
         return {"error": "UIN is required", "status": 400}
 
-    db.update_user_role_and_uin(user_id, "FORMER_STUDENT", uin_clean)
+    personal_email_clean = (personal_email or "").strip().lower()
+    if not personal_email_clean or "@" not in personal_email_clean:
+        return {"error": "Personal email is required", "status": 400}
+
+    # Validate personal_email against student record
+    try:
+        student = students_table.get_item(Key={"uin": uin_clean}).get("Item")
+        if not student:
+            return {"error": "UIN not found in student records", "status": 404}
+        record_email = (student.get("personal_email") or "").strip().lower()
+        if record_email and record_email != personal_email_clean:
+            return {
+                "error": "Personal email does not match the one on file for this UIN",
+                "status": 400,
+            }
+    except Exception as e:
+        return {"error": f"Could not verify student record: {e}", "status": 500}
+
+    db.update_user_role_and_uin(
+        user_id, "FORMER_STUDENT", uin_clean, personal_email=personal_email_clean or None
+    )
     if class_year:
         db.table.update_item(
             Key={"user_id": user_id},

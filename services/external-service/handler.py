@@ -43,7 +43,7 @@ def _route(event: dict) -> tuple:
     req = event.get("requestContext", {}) or {}
     http = req.get("http", {})
     method = (http.get("method") or event.get("httpMethod") or "GET").upper()
-    path = (http.get("path") or event.get("path") or "/").strip("/")
+    path = (http.get("path") or event.get("rawPath") or event.get("path") or "/").strip("/")
     path_parts = [p for p in path.split("/") if p]
     body = _parse_body(event)
     return path_parts, method, body
@@ -73,6 +73,9 @@ def do_signup(body: dict) -> dict:
 
     if not email or "@" not in email:
         return _response({"error": "Valid email is required"}, 400)
+    domain = email.split("@")[-1].lower()
+    if domain != "tamu.edu":
+        return _response({"error": "Registration requires a Texas A&M University email (@tamu.edu)"}, 400)
     if not password or len(password) < 10:
         return _response({"error": "Password must be at least 10 characters"}, 400)
 
@@ -221,7 +224,7 @@ def do_me(event: dict) -> dict:
 
 # ---------------------------------------------------------------------------
 # POST /graduation-handover
-# Body: { "uin", "classYear": optional }
+# Body: { "uin", "classYear": optional, "personalEmail", "password" }
 # ---------------------------------------------------------------------------
 def do_graduation_handover(event: dict, body: dict) -> dict:
     token = auth.parse_token_from_header(event.get("headers") or {})
@@ -233,18 +236,39 @@ def do_graduation_handover(event: dict, body: dict) -> dict:
         return _response({"error": "Invalid or expired token"}, 401)
 
     sub = None
+    email = None
     for attr in cognito_user.get("UserAttributes", []):
         if attr["Name"] == "sub":
             sub = attr["Value"]
-            break
+        elif attr["Name"] == "email":
+            email = attr["Value"]
     if not sub:
         return _response({"error": "User not found"}, 404)
 
     uin = (body.get("uin") or "").strip()
     class_year = (body.get("classYear") or "").strip() or None
+    personal_email = (body.get("personalEmail") or "").strip().lower()
+    password = body.get("password")
+
+    if not personal_email or "@" not in personal_email:
+        return _response({"error": "Personal email is required"}, 400)
+    if not password:
+        return _response({"error": "Password is required to verify your identity"}, 400)
+    if not email or "@" not in email:
+        return _response({"error": "Could not determine account email"}, 500)
+
+    # Verify password (user's TAMU/account password)
+    try:
+        auth.initiate_auth(email, password)
+    except auth.client.exceptions.NotAuthorizedException:
+        return _response({"error": "Invalid password"}, 401)
+    except auth.client.exceptions.UserNotFoundException:
+        return _response({"error": "Invalid password"}, 401)
+    except Exception as e:
+        return _response({"error": "Password verification failed", "detail": str(e)}, 500)
 
     try:
-        result = handover.link_uin_to_user(sub, uin, class_year)
+        result = handover.link_uin_to_user(sub, uin, class_year, personal_email=personal_email)
     except Exception as e:
         return _response({"error": "Handover failed", "detail": str(e)}, 500)
 
@@ -283,6 +307,14 @@ def lambda_handler(event: dict, context: object) -> dict:
     # POST /graduation-handover
     if path_parts == ["graduation-handover"] and method == "POST":
         return do_graduation_handover(event, body)
+
+    # POST /graduation-handover/request-link - self-service: request magic link by email
+    if path_parts == ["graduation-handover", "request-link"] and method == "POST":
+        email = (body.get("email") or "").strip().lower()
+        result = graduation_scan.request_magic_link_for_email(email)
+        if "error" in result:
+            return _response({"error": result["error"]}, result.get("status", 400))
+        return _response(result, 200)
 
     # GET /graduation-handover/claim?token=xxx - validate token, return email/uin for UI
     if path_parts == ["graduation-handover", "claim"] and method == "GET":

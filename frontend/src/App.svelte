@@ -89,7 +89,7 @@
     {:else if view === 'register'}
       <Register onDone={onRegister} />
     {:else if view === 'login'}
-      <Login onLogin={onLogin} />
+      <Login onLogin={onLogin} onGoToClaim={(token) => { claimToken = token; view = 'claim'; }} />
     {:else if view === 'profile'}
       <Profile {accessToken} {user} onLogout={onLogout} />
     {:else if view === 'handover'}

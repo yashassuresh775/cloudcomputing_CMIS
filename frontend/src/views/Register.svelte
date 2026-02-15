@@ -13,8 +13,13 @@
 
   async function handleSubmit() {
     error = '';
-    if (!email.trim()) {
+    const em = email.trim().toLowerCase();
+    if (!em) {
       error = 'Email is required';
+      return;
+    }
+    if (!em.endsWith('@tamu.edu')) {
+      error = 'Registration requires a Texas A&M University email (@tamu.edu)';
       return;
     }
     if (!password) {
@@ -36,7 +41,7 @@
     loading = true;
     try {
           await signup({
-            email: email.trim().toLowerCase(),
+            email: em,
             password,
             formerStudent,
             classYear: classYear.trim() || undefined,
@@ -57,8 +62,9 @@
   {/if}
   <form on:submit|preventDefault={handleSubmit}>
     <div class="form-group">
-      <label for="reg-email">Email</label>
-      <input id="reg-email" type="email" bind:value={email} required placeholder="you@company.com" />
+      <label for="reg-email">TAMU email</label>
+      <input id="reg-email" type="email" bind:value={email} required placeholder="you@tamu.edu" />
+      <span class="hint">Must be a Texas A&M University email (@tamu.edu)</span>
     </div>
     <div class="form-group">
       <label for="reg-password">Password</label>
@@ -85,6 +91,6 @@
     </button>
   </form>
   <p class="hint" style="margin-top: 1rem;">
-    Partner role is assigned if your email domain is on the company list. Otherwise you are a Friend, or Former Student if you check the box.
+    Only @tamu.edu addresses can register. Partner role is assigned if your domain is on the company list; otherwise you are a Friend, or Former Student if you check the box.
   </p>
 </div>

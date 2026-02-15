@@ -110,3 +110,66 @@ If you did not request this, you can ignore this email."""
             print(f"[graduation_scan] SES failed for {email}: {e}; falling back to log")
     # Dev / no SES: log the link so we can test
     print(f"[graduation_scan] Magic link for {email} (UIN {uin}): {magic_link}")
+
+
+def request_magic_link_for_email(email: str) -> dict:
+    """
+    Self-service: user requests magic link by entering their personal email.
+    Looks up eligible student, generates token, delivers via SES or returns link for dev.
+    Returns { success, message, magicLink? } or { error, ... }.
+    """
+    email = (email or "").strip().lower()
+    if not email or "@" not in email:
+        return {"error": "Valid email is required", "status": 400}
+
+    ses_sender = os.environ.get("SES_VERIFIED_SENDER")
+
+    # Scan for student with this personal_email (self-service: allow any grad_date)
+    response = students_table.scan(
+        FilterExpression="personal_email = :e AND account_status = :s",
+        ExpressionAttributeValues={
+            ":e": email,
+            ":s": "STUDENT",
+        },
+    )
+    items = response.get("Items", [])
+    while "LastEvaluatedKey" in response:
+        response = students_table.scan(
+            FilterExpression="personal_email = :e AND account_status = :s",
+            ExpressionAttributeValues={":e": email, ":s": "STUDENT"},
+            ExclusiveStartKey=response["LastEvaluatedKey"],
+        )
+        items.extend(response.get("Items", []))
+
+    if not items:
+        return {"error": "No eligible graduate account found for this email. If you recently graduated, your record may not be processed yet.", "status": 404}
+
+    student = items[0]
+    uin = student.get("uin")
+    personal_email = (student.get("personal_email") or "").strip()
+    class_year = (student.get("class_year") or "").strip() or None
+
+    try:
+        raw_token = secrets.token_urlsafe(32)
+        token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
+        expires_at = int(datetime.now(timezone.utc).timestamp()) + TOKEN_TTL_SECONDS
+
+        tokens_table.put_item(
+            Item={
+                "token_hash": token_hash,
+                "uin": uin,
+                "personal_email": personal_email,
+                "class_year": class_year or "",
+                "expires_at": expires_at,
+                "claimed": False,
+            }
+        )
+
+        magic_link = f"{FRONTEND_BASE_URL.rstrip('/')}/#claim?token={raw_token}"
+        _deliver_magic_link(personal_email, magic_link, uin)
+
+        if ses_sender:
+            return {"success": True, "message": "Check your email for the claim link. It expires in 7 days."}
+        return {"success": True, "message": "Your claim link is ready.", "magicLink": magic_link}
+    except Exception as e:
+        return {"error": f"Failed to generate link: {e}", "status": 500}

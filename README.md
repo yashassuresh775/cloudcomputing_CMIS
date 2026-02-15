@@ -110,10 +110,11 @@ Shutdown runs `terraform destroy`. Restart runs `terraform apply`, seeds student
 
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/auth/signup` | Register (body: `email`, `password`, `formerStudent`, `classYear`) |
+| POST | `/auth/signup` | Register (body: `email`, `password`, `formerStudent`, `classYear`). Email must be @tamu.edu. |
 | POST | `/auth/signin` | Sign in (body: `email`, `password`) |
 | GET | `/me` | Current user (header: `Authorization: Bearer <accessToken>`) |
-| POST | `/graduation-handover` | Link external account to Student UIN, transfer history, set role to FORMER_STUDENT (auth required; body: `uin`, optional `classYear`) |
+| POST | `/graduation-handover` | Link external account to Student UIN, transfer history, set role to FORMER_STUDENT (auth required; body: `uin`, `personalEmail`, `password`, optional `classYear`) |
+| POST | `/graduation-handover/request-link` | Request magic link by email (body: `email`); self-service from UI |
 | GET | `/graduation-handover/claim?token=...` | Validate magic-link token; returns `email`, `uin`, `classYear` |
 | POST | `/graduation-handover/claim` | Complete claim with `token` and `password` (creates account, links UIN) |
 
@@ -163,6 +164,8 @@ aws lambda invoke --function-name cmis-external-external-service \
 - **With SES:** Check the recipient inbox for the magic link.
 - **Without SES:** Magic links are logged in CloudWatch (`/aws/lambda/cmis-external-external-service`). Copy the URL and open in the browser (e.g. `http://localhost:5173/#claim?token=...`).
 
+**Self-service from UI:** On the login page, graduates can click "I'm a graduate — get my claim link", enter their personal email, and either receive the link by email (SES) or see a clickable "Open claim page" button (no SES).
+
 #### Automated tests
 
 ```bash
@@ -170,6 +173,10 @@ aws lambda invoke --function-name cmis-external-external-service \
 ```
 
 Optional: set `CLAIM_TOKEN` to test the valid-token flow (get token from CloudWatch logs).
+
+### Code explanation guide
+
+For a detailed walkthrough of the codebase (architecture, data flows, key files), see [docs/CODE_EXPLANATION_GUIDE.md](docs/CODE_EXPLANATION_GUIDE.md).
 
 ### Repo structure (per project spec)
 

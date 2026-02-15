@@ -7,6 +7,8 @@
 
   let uin = '';
   let classYear = '';
+  let personalEmail = '';
+  let password = '';
   let error = '';
   let success = '';
   let loading = false;
@@ -15,8 +17,17 @@
     error = '';
     success = '';
     const u = String(uin).trim();
+    const pe = (personalEmail || '').trim().toLowerCase();
     if (!u) {
       error = 'UIN is required';
+      return;
+    }
+    if (!pe || !pe.includes('@')) {
+      error = 'Personal email is required';
+      return;
+    }
+    if (!password) {
+      error = 'Enter your current password to verify your identity';
       return;
     }
     loading = true;
@@ -24,6 +35,8 @@
       await graduationHandover(accessToken, {
         uin: u,
         classYear: classYear.trim() || undefined,
+        personalEmail: pe,
+        password,
       });
       const updated = await me(accessToken);
       success = 'Your account is now linked to your student history.';
@@ -49,6 +62,16 @@
     <div class="form-group">
       <label for="uin">Student UIN</label>
       <input id="uin" type="text" bind:value={uin} placeholder="e.g. 123456789" />
+    </div>
+    <div class="form-group">
+      <label for="personal-email">Personal email</label>
+      <input id="personal-email" type="email" bind:value={personalEmail} placeholder="e.g. you@gmail.com" />
+      <span class="hint">Must match the personal email on your student record.</span>
+    </div>
+    <div class="form-group">
+      <label for="handover-password">Current password</label>
+      <input id="handover-password" type="password" bind:value={password} placeholder="Your TAMU account password" />
+      <span class="hint">Verify your identity with your current sign-in password.</span>
     </div>
     <div class="form-group">
       <label for="handover-class-year">Class year (optional)</label>
