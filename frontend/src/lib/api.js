@@ -54,3 +54,23 @@ export async function graduationHandover(accessToken, { uin, classYear }) {
   if (!res.ok) throw new Error(data.detail ? `${data.error || 'Handover failed'}: ${data.detail}` : (data.error || 'Handover failed'));
   return data;
 }
+
+/** Validate magic-link token; returns { email, uin, classYear } if valid */
+export async function claimTokenInfo(token) {
+  const res = await fetch(`${BASE}/graduation-handover/claim?token=${encodeURIComponent(token)}`);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Invalid or expired link');
+  return data;
+}
+
+/** Complete graduation claim with password */
+export async function claimWithPassword(token, password) {
+  const res = await fetch(`${BASE}/graduation-handover/claim`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, password }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Claim failed');
+  return data;
+}

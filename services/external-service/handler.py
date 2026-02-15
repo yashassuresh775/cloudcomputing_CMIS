@@ -1,6 +1,7 @@
 """
 Lambda handler for External Service (Team Gig 'Em).
-Routes: POST /auth/signup, POST /auth/signin, GET /me, POST /graduation-handover
+Routes: POST /auth/signup, POST /auth/signin, GET /me, POST /graduation-handover,
+        GET/POST /graduation-handover/claim, EventBridge graduation scan.
 """
 
 import json
@@ -10,6 +11,8 @@ import auth
 import db
 import role_engine
 import handover
+import graduation_scan
+import graduation_claim
 
 USER_POOL_ID = os.environ.get("USER_POOL_ID")
 CLIENT_ID = os.environ.get("CLIENT_ID")
@@ -44,6 +47,18 @@ def _route(event: dict) -> tuple:
     path_parts = [p for p in path.split("/") if p]
     body = _parse_body(event)
     return path_parts, method, body
+
+
+# ---------------------------------------------------------------------------
+# EventBridge: Graduation scan (Scheduled rule)
+# ---------------------------------------------------------------------------
+def do_graduation_scan() -> dict:
+    """Scan students, generate tokens, deliver magic links."""
+    try:
+        result = graduation_scan.run_scan()
+        return _response(result, 200)
+    except Exception as e:
+        return _response({"error": "Scan failed", "detail": str(e)}, 500)
 
 
 # ---------------------------------------------------------------------------
@@ -239,6 +254,10 @@ def do_graduation_handover(event: dict, body: dict) -> dict:
 
 
 def lambda_handler(event: dict, context: object) -> dict:
+    # EventBridge scheduled invocation (graduation scan)
+    if event.get("source") == "aws.events" or event.get("detail-type") == "Scheduled Event":
+        return do_graduation_scan()
+
     path_parts, method, body = _route(event)
 
     # CORS preflight - return 200 for all OPTIONS requests
@@ -264,5 +283,23 @@ def lambda_handler(event: dict, context: object) -> dict:
     # POST /graduation-handover
     if path_parts == ["graduation-handover"] and method == "POST":
         return do_graduation_handover(event, body)
+
+    # GET /graduation-handover/claim?token=xxx - validate token, return email/uin for UI
+    if path_parts == ["graduation-handover", "claim"] and method == "GET":
+        query = event.get("queryStringParameters") or {}
+        token = query.get("token", "").strip()
+        info = graduation_claim.get_token_info(token)
+        if not info:
+            return _response({"error": "Invalid or expired token"}, 400)
+        return _response({"email": info["personal_email"], "uin": info["uin"], "classYear": info["class_year"]})
+
+    # POST /graduation-handover/claim - complete claim with password
+    if path_parts == ["graduation-handover", "claim"] and method == "POST":
+        token = (body.get("token") or "").strip()
+        password = body.get("password") or ""
+        result = graduation_claim.claim_with_password(token, password)
+        if "error" in result:
+            return _response({"error": result["error"]}, result.get("status", 400))
+        return _response(result, 200)
 
     return _response({"error": "Not Found", "path": "/" + "/".join(path_parts)}, 404)

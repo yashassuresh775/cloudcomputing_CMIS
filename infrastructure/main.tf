@@ -1,6 +1,13 @@
 # CMIS Engagement Platform - Shared Infrastructure
 # Team Gig 'Em: External Core - Cognito, DynamoDB, Lambda, API Gateway
 
+variable "ses_verified_sender" {
+  description = "SES verified sender email for magic-link notifications. Leave empty to log links to CloudWatch."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
 terraform {
   required_version = ">= 1.0"
   required_providers {
@@ -162,6 +169,58 @@ resource "aws_dynamodb_table" "external_users" {
 }
 
 # -----------------------------------------------------------------------------
+# DynamoDB - Students table (dummy data for graduation automation)
+# -----------------------------------------------------------------------------
+resource "aws_dynamodb_table" "students" {
+  name         = "${var.project_name}-students"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "uin"
+
+  attribute {
+    name = "uin"
+    type = "S"
+  }
+  attribute {
+    name = "account_status"
+    type = "S"
+  }
+  attribute {
+    name = "grad_date"
+    type = "S"
+  }
+
+  global_secondary_index {
+    name            = "grad-status-index"
+    hash_key        = "account_status"
+    range_key       = "grad_date"
+    projection_type = "ALL"
+  }
+
+  tags = var.tags
+}
+
+# -----------------------------------------------------------------------------
+# DynamoDB - Handover magic-link tokens
+# -----------------------------------------------------------------------------
+resource "aws_dynamodb_table" "handover_tokens" {
+  name         = "${var.project_name}-handover-tokens"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "token_hash"
+
+  attribute {
+    name = "token_hash"
+    type = "S"
+  }
+
+  ttl {
+    attribute_name = "expires_at"
+    enabled        = true
+  }
+
+  tags = var.tags
+}
+
+# -----------------------------------------------------------------------------
 # IAM role for External Service Lambda
 # -----------------------------------------------------------------------------
 resource "aws_iam_role" "external_lambda" {
@@ -206,7 +265,10 @@ resource "aws_iam_role_policy" "external_lambda" {
         ]
         Resource = [
           aws_dynamodb_table.external_users.arn,
-          "${aws_dynamodb_table.external_users.arn}/index/*"
+          "${aws_dynamodb_table.external_users.arn}/index/*",
+          aws_dynamodb_table.students.arn,
+          "${aws_dynamodb_table.students.arn}/index/*",
+          aws_dynamodb_table.handover_tokens.arn
         ]
       },
       {
@@ -224,6 +286,11 @@ resource "aws_iam_role_policy" "external_lambda" {
           "cognito-idp:ListUsers"
         ]
         Resource = [aws_cognito_user_pool.external.arn]
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["ses:SendEmail", "ses:SendRawEmail"]
+        Resource = "*"
       }
     ]
   })
@@ -250,10 +317,14 @@ resource "aws_lambda_function" "external_service" {
 
   environment {
     variables = {
-      USER_POOL_ID        = aws_cognito_user_pool.external.id
-      CLIENT_ID           = aws_cognito_user_pool_client.external.id
-      EXTERNAL_USERS_TABLE = aws_dynamodb_table.external_users.name
-      COMPANY_LIST_API_URL = var.company_list_api_url
+      USER_POOL_ID          = aws_cognito_user_pool.external.id
+      CLIENT_ID             = aws_cognito_user_pool_client.external.id
+      EXTERNAL_USERS_TABLE  = aws_dynamodb_table.external_users.name
+      STUDENTS_TABLE        = aws_dynamodb_table.students.name
+      HANDOVER_TOKENS_TABLE = aws_dynamodb_table.handover_tokens.name
+      COMPANY_LIST_API_URL  = var.company_list_api_url
+      FRONTEND_BASE_URL     = var.frontend_base_url
+      SES_VERIFIED_SENDER   = var.ses_verified_sender
     }
   }
 
@@ -305,4 +376,28 @@ resource "aws_lambda_permission" "api_gw" {
   function_name = aws_lambda_function.external_service.function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.external.execution_arn}/*/*"
+}
+
+# -----------------------------------------------------------------------------
+# EventBridge - Scheduled rule to run graduation scan (monthly, 1st at 8am UTC)
+# -----------------------------------------------------------------------------
+resource "aws_cloudwatch_event_rule" "graduation_scan" {
+  name                = "${var.project_name}-graduation-scan"
+  description         = "Trigger graduation handover scan for eligible students"
+  schedule_expression = "cron(0 8 1 * ? *)"  # 1st of each month at 08:00 UTC
+  tags                = var.tags
+}
+
+resource "aws_cloudwatch_event_target" "graduation_scan" {
+  rule      = aws_cloudwatch_event_rule.graduation_scan.name
+  target_id = "external-service"
+  arn       = aws_lambda_function.external_service.arn
+}
+
+resource "aws_lambda_permission" "eventbridge" {
+  statement_id  = "AllowEventBridgeInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.external_service.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.graduation_scan.arn
 }

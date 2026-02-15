@@ -23,3 +23,8 @@ output "api_invoke_url" {
   description = "Full API invoke URL (with stage)"
   value       = "${aws_apigatewayv2_api.external.api_endpoint}"
 }
+
+output "students_table_name" {
+  description = "DynamoDB table name for students (graduation scan)"
+  value       = aws_dynamodb_table.students.name
+}

@@ -1,0 +1,51 @@
+#!/usr/bin/env python3
+"""Seed dummy graduating students into the students DynamoDB table."""
+import os
+import sys
+import boto3
+
+TABLE = os.environ.get("STUDENTS_TABLE", "cmis-external-students")
+
+DUMMY_STUDENTS = [
+    {
+        "uin": "100123456",
+        "grad_date": "2025-01-15",
+        "account_status": "STUDENT",
+        "personal_email": "alice.grad@personal.gmail.com",
+        "class_year": "25",
+    },
+    {
+        "uin": "100234567",
+        "grad_date": "2025-02-01",
+        "account_status": "STUDENT",
+        "personal_email": "bob.grad@personal.gmail.com",
+        "class_year": "25",
+    },
+    {
+        "uin": "100345678",
+        "grad_date": "2025-02-14",
+        "account_status": "STUDENT",
+        "personal_email": "carol.grad@personal.gmail.com",
+        "class_year": "25",
+    },
+    {
+        "uin": "100888888",
+        "grad_date": "2025-02-14",
+        "account_status": "STUDENT",
+        "personal_email": "yashassuresh775@gmail.com",
+        "class_year": "25",
+        "tamu_email": "yashassuresh@tamu.edu",
+    },
+]
+
+def main():
+    dynamo = boto3.resource("dynamodb")
+    table = dynamo.Table(TABLE)
+    for s in DUMMY_STUDENTS:
+        table.put_item(Item=s)
+        print(f"Seeded: {s['uin']} ({s['personal_email']})")
+    print(f"Done. Seeded {len(DUMMY_STUDENTS)} students.")
+
+
+if __name__ == "__main__":
+    main()

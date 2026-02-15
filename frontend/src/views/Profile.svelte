@@ -41,6 +41,7 @@
     <div class="alert alert-error">{error}</div>
     <button class="btn btn-secondary" on:click={onLogout}>Log out</button>
   {:else if profile}
+    <p class="welcome-back">Welcome back{profile.email ? `, ${profile.email.split('@')[0]}` : ''}!</p>
     <p><strong>Email:</strong> {profile.email}</p>
     <p><strong>Role:</strong> {profile.role}</p>
     {#if profile.classYear}
@@ -54,3 +55,11 @@
     <button class="btn btn-secondary" style="margin-top: 1rem;" on:click={onLogout}>Log out</button>
   {/if}
 </div>
+
+<style>
+  .welcome-back {
+    font-size: 1.1rem;
+    color: var(--primary-color);
+    margin-bottom: 1rem;
+  }
+</style>

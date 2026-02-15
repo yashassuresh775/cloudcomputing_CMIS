@@ -16,6 +16,12 @@ variable "company_list_api_url" {
   default     = ""
 }
 
+variable "frontend_base_url" {
+  description = "Frontend base URL for magic-link claim (e.g. https://app.example.com or http://localhost:5173)"
+  type        = string
+  default     = "http://localhost:5173"
+}
+
 variable "cors_allow_origins" {
   description = "CORS allowed origins for API (e.g. frontend URL)"
   type        = list(string)

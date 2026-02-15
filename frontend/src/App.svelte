@@ -1,10 +1,24 @@
 <script>
+  import { onMount } from 'svelte';
   import Register from './views/Register.svelte';
   import Login from './views/Login.svelte';
   import Handover from './views/Handover.svelte';
   import Profile from './views/Profile.svelte';
+  import Claim from './views/Claim.svelte';
 
   let view = 'login';
+  let claimToken = '';
+
+  onMount(() => {
+    const hash = (typeof window !== 'undefined' && window.location.hash) || '';
+    const search = (typeof window !== 'undefined' && window.location.search) || '';
+    const params = new URLSearchParams(hash.slice(1).split('?')[1] || search.slice(1));
+    const token = params.get('token');
+    if (token && (hash.includes('claim') || search.includes('token='))) {
+      claimToken = token;
+      view = 'claim';
+    }
+  });
   let accessToken = localStorage.getItem('accessToken') || '';
   let user = null;
 
@@ -36,6 +50,22 @@
     user = updatedUser;
     view = 'profile';
   }
+
+  function onClaimSuccess() {
+    claimToken = '';
+    view = 'login';
+    if (typeof window !== 'undefined') {
+      window.history.replaceState({}, '', window.location.pathname || '/');
+    }
+  }
+
+  function onClaimCancel() {
+    claimToken = '';
+    view = 'login';
+    if (typeof window !== 'undefined') {
+      window.history.replaceState({}, '', window.location.pathname || '/');
+    }
+  }
 </script>
 
 <main>
@@ -54,7 +84,9 @@
       {/if}
     </nav>
 
-    {#if view === 'register'}
+    {#if view === 'claim'}
+      <Claim token={claimToken} onSuccess={onClaimSuccess} onCancel={onClaimCancel} />
+    {:else if view === 'register'}
       <Register onDone={onRegister} />
     {:else if view === 'login'}
       <Login onLogin={onLogin} />
