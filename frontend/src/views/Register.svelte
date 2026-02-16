@@ -3,6 +3,7 @@
 
   export let onDone = () => {};
 
+  const CLASS_YEARS = ['2020', '2021', '2022', '2023', '2024', '2025'];
   let email = '';
   let password = '';
   let confirmPassword = '';
@@ -11,6 +12,14 @@
   let error = '';
   let loading = false;
 
+  $: pwLen = password.length >= 10;
+  $: pwUpper = /[A-Z]/.test(password);
+  $: pwLower = /[a-z]/.test(password);
+  $: pwNum = /[0-9]/.test(password);
+  $: pwSpecial = /[^A-Za-z0-9]/.test(password);
+  $: pwValid = pwLen && pwUpper && pwLower && pwNum && pwSpecial;
+  $: passwordsMatch = password && confirmPassword && password === confirmPassword;
+
   async function handleSubmit() {
     error = '';
     const em = email.trim().toLowerCase();
@@ -18,16 +27,8 @@
       error = 'Email is required';
       return;
     }
-    if (!em.endsWith('@tamu.edu')) {
-      error = 'Registration requires a Texas A&M University email (@tamu.edu)';
-      return;
-    }
-    if (!password) {
-      error = 'Password is required';
-      return;
-    }
-    if (password.length < 10) {
-      error = 'Password must be at least 10 characters';
+    if (!pwValid) {
+      error = 'Password must meet all requirements below';
       return;
     }
     if (password !== confirmPassword) {
@@ -40,12 +41,12 @@
     }
     loading = true;
     try {
-          await signup({
-            email: em,
-            password,
-            formerStudent,
-            classYear: classYear.trim() || undefined,
-          });
+      await signup({
+        email: em,
+        password,
+        formerStudent,
+        classYear: classYear.trim() || undefined,
+      });
       onDone();
     } catch (e) {
       error = e.message || 'Registration failed';
@@ -57,40 +58,99 @@
 
 <div class="card">
   <h2>Create account</h2>
+  <p class="intro">Create an account to access the platform. You can link your student record later using your UIN (Graduation Handover).</p>
   {#if error}
     <div class="alert alert-error">{error}</div>
   {/if}
   <form on:submit|preventDefault={handleSubmit}>
+    <h3 class="form-section-title">Account details</h3>
     <div class="form-group">
-      <label for="reg-email">TAMU email</label>
-      <input id="reg-email" type="email" bind:value={email} required placeholder="you@tamu.edu" />
-      <span class="hint">Must be a Texas A&M University email (@tamu.edu)</span>
+      <label for="reg-email">Email</label>
+      <input id="reg-email" type="email" bind:value={email} required placeholder="you@example.com" />
+      <span class="hint">Use any valid email address. You’ll sign in with this.</span>
     </div>
     <div class="form-group">
       <label for="reg-password">Password</label>
       <input id="reg-password" type="password" bind:value={password} required minlength="10" />
-      <div class="hint">At least 10 characters</div>
+      <ul class="password-requirements" aria-label="Password requirements">
+        <li class={pwLen ? 'valid' : ''}>At least 10 characters</li>
+        <li class={pwUpper ? 'valid' : ''}>Contains uppercase letter</li>
+        <li class={pwLower ? 'valid' : ''}>Contains lowercase letter</li>
+        <li class={pwNum ? 'valid' : ''}>Contains number</li>
+        <li class={pwSpecial ? 'valid' : ''}>Contains special character</li>
+      </ul>
     </div>
     <div class="form-group">
       <label for="reg-confirm">Confirm password</label>
       <input id="reg-confirm" type="password" bind:value={confirmPassword} required />
+      {#if confirmPassword}
+        <span class="hint {passwordsMatch ? 'valid' : 'invalid'}">{passwordsMatch ? '✓ Passwords match' : 'Passwords do not match'}</span>
+      {/if}
     </div>
+    <h3 class="form-section-title">Role (optional)</h3>
     <div class="checkbox-group">
       <input id="former" type="checkbox" bind:checked={formerStudent} />
-      <label for="former">I am a former student</label>
+      <label for="former">I am a Former Student</label>
     </div>
+    <p class="hint role-hint">Check this if you’ve graduated and want to link your student record later via Graduation Handover.</p>
     {#if formerStudent}
       <div class="form-group">
         <label for="class-year">Class year</label>
-        <input id="class-year" type="text" bind:value={classYear} placeholder="e.g. 26 or 2026" />
-        <div class="hint">Required when claiming former student</div>
+        <select id="class-year" bind:value={classYear} required>
+          <option value="">Select year</option>
+          {#each CLASS_YEARS as y}
+            <option value={y}>{y}</option>
+          {/each}
+        </select>
+        <div class="hint">Required when claiming Former Student</div>
       </div>
     {/if}
-    <button class="btn btn-primary" type="submit" disabled={loading}>
+    <button class="btn btn-primary" type="submit" disabled={loading || !pwValid || !passwordsMatch}>
       {loading ? 'Creating…' : 'Register'}
     </button>
   </form>
-  <p class="hint" style="margin-top: 1rem;">
-    Only @tamu.edu addresses can register. Partner role is assigned if your domain is on the company list; otherwise you are a Friend, or Former Student if you check the box.
+  <p class="login-link">
+    Already have an account? <button type="button" class="btn btn-link" on:click={onDone}>Log in</button>
+  </p>
+  <p class="hint" style="margin-top: 0.5rem;">
+    Partner role is assigned if your email domain is on the company list; otherwise you are a Friend, or Former Student if you check the box.
   </p>
 </div>
+
+<style>
+  .password-requirements {
+    margin: 0.25rem 0 0;
+    padding-left: 1.25rem;
+    font-size: 0.9rem;
+    color: var(--text-muted, #666);
+  }
+  .password-requirements li.valid {
+    color: #0a0;
+  }
+  .hint.valid { color: #0a0; }
+  .hint.invalid { color: #c00; }
+  .login-link { margin-top: 1rem; }
+  .btn-link {
+    background: none;
+    border: none;
+    color: var(--primary-color, #0066cc);
+    cursor: pointer;
+    padding: 0;
+    font-size: inherit;
+    text-decoration: underline;
+  }
+  .btn-link:hover { opacity: 0.9; }
+  .intro {
+    color: var(--text-muted, #555);
+    margin-bottom: 1.25rem;
+    font-size: 0.95rem;
+    line-height: 1.5;
+  }
+  .form-section-title {
+    font-size: 1rem;
+    margin: 1.25rem 0 0.5rem 0;
+    color: var(--text-color, #333);
+  }
+  .form-section-title:first-of-type { margin-top: 0; }
+  .role-hint { margin-top: 0.25rem; margin-bottom: 0; }
+</style>

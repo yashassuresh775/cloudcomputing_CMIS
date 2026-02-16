@@ -3,12 +3,14 @@
 
   export let onLogin = () => {};
   export let onGoToClaim = () => {};
+  export let onGoToRegister = () => {};
   export let onGoToForgotPassword = () => {};
 
   let email = '';
   let password = '';
   let error = '';
   let loading = false;
+  let rememberMe = true;
 
   // Graduate claim flow
   let showGraduateFlow = false;
@@ -90,7 +92,10 @@
 
 <div class="card">
   <h2>Log in</h2>
-  <p class="hint sso-note">Sign in with your @tamu.edu email. Use your CMIS account password (SSO is not used).</p>
+  <div class="info-box">
+    <p><strong>Who can sign in?</strong> Partners, former students, and community members who have created an account. Use the email and password you registered with.</p>
+    <p class="sso-note">Current students: use your institution’s Google SSO (Team Reveille).</p>
+  </div>
   {#if error}
     <div class="alert alert-error">{error}</div>
   {/if}
@@ -103,13 +108,20 @@
       <label for="login-password">Password</label>
       <input id="login-password" type="password" bind:value={password} required />
     </div>
+    <div class="form-group remember-row">
+      <input id="remember" type="checkbox" bind:checked={rememberMe} />
+      <label for="remember">Remember me</label>
+    </div>
     <button class="btn btn-primary" type="submit" disabled={loading}>
       {loading ? 'Signing in…' : 'Log in'}
     </button>
     {#if onGoToForgotPassword}
-      <button type="button" class="btn btn-link" style="margin-left: 0.5rem;" on:click={onGoToForgotPassword}>Forgot password?</button>
+      <button type="button" class="btn btn-link" on:click={onGoToForgotPassword}>Forgot password?</button>
     {/if}
   </form>
+  {#if onGoToRegister}
+    <p class="register-link">Don't have an account? <button type="button" class="btn btn-link" on:click={onGoToRegister}>Register</button></p>
+  {/if}
 
   <div class="claim-section">
     <h3 class="claim-heading">Recent graduate?</h3>
@@ -209,4 +221,25 @@
   .btn-link:hover {
     text-decoration: underline;
   }
+  .info-box {
+    padding: 1rem;
+    background: #f0f7ff;
+    border-radius: 8px;
+    margin-bottom: 1.25rem;
+    font-size: 0.95rem;
+  }
+  .info-box p { margin: 0 0 0.5rem 0; }
+  .info-box p:last-child { margin-bottom: 0; }
+  .sso-note {
+    margin-top: 0.5rem;
+    color: var(--text-muted, #555);
+    font-size: 0.9rem;
+  }
+  .remember-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .remember-row label { margin: 0; }
+  .register-link { margin-top: 1rem; }
 </style>

@@ -69,6 +69,16 @@ export async function me(accessToken) {
   return data;
 }
 
+/** Step 1: Look up student by UIN for verification (returns studentProfile, no link). */
+export async function handoverLookup(accessToken, uin) {
+  const res = await fetch(`${BASE}/graduation-handover/lookup?uin=${encodeURIComponent(String(uin).trim())}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Lookup failed');
+  return data;
+}
+
 export async function graduationHandover(accessToken, { uin, classYear, personalEmail, password }) {
   const res = await fetch(`${BASE}/graduation-handover`, {
     method: 'POST',

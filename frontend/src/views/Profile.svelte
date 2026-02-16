@@ -1,20 +1,21 @@
 <script>
-  import { me, updateMe } from '../lib/api.js';
+  import { me } from '../lib/api.js';
   import { onMount } from 'svelte';
 
   export let accessToken;
   export let user;
   export let onLogout = () => {};
-  export let onProfileUpdate = (updated) => {};
+  export let onGoToHandover = () => {};
 
   let profile = user;
   let loading = true;
   let error = '';
-  let editMode = false;
-  let editClassYear = '';
-  let editLinkedInUrl = '';
-  let saveLoading = false;
-  let saveError = '';
+
+  $: roleBadge = profile && (profile.role === 'FORMER_STUDENT'
+    ? `Former Student${profile.classYear ? " '" + String(profile.classYear).slice(-2) : ''}` 
+    : profile.role === 'PARTNER' 
+      ? 'Recruiter' 
+      : 'Community Member');
 
   onMount(async () => {
     if (!accessToken) {
@@ -28,8 +29,6 @@
     }
     try {
       profile = await me(accessToken);
-      editClassYear = profile.classYear || '';
-      editLinkedInUrl = profile.linkedInUrl || '';
     } catch (e) {
       error = e.message;
       profile = null;
@@ -38,104 +37,104 @@
     }
   });
 
-  $: if (user && !profile && !loading) {
-    profile = user;
-    editClassYear = profile?.classYear || '';
-    editLinkedInUrl = profile?.linkedInUrl || '';
-  }
-
-  async function saveProfile() {
-    saveError = '';
-    if (!editClassYear.trim() && !editLinkedInUrl.trim()) {
-      saveError = 'Enter class year and/or LinkedIn URL';
-      return;
-    }
-    saveLoading = true;
-    try {
-      const updated = await updateMe(accessToken, {
-        classYear: editClassYear.trim() || undefined,
-        linkedInUrl: editLinkedInUrl.trim() || undefined,
-      });
-      profile = updated;
-      onProfileUpdate(updated);
-      editMode = false;
-    } catch (e) {
-      saveError = e.message || 'Update failed';
-    } finally {
-      saveLoading = false;
-    }
-  }
+  $: if (user && !profile && !loading) profile = user;
 </script>
 
 <div class="card">
-  <h2>Profile</h2>
+  <h2>Your profile</h2>
   {#if loading}
-    <p>Loading…</p>
+    <p>Loading your profile…</p>
   {:else if error}
     <div class="alert alert-error">{error}</div>
     <button class="btn btn-secondary" on:click={onLogout}>Log out</button>
   {:else if profile}
+    {#if roleBadge}
+      <p class="role-badge">{roleBadge}</p>
+    {/if}
     <p class="welcome-back">Welcome back{profile.email ? `, ${profile.email.split('@')[0]}` : ''}!</p>
-    <p><strong>Email:</strong> {profile.email}</p>
-    <p><strong>Role:</strong> {profile.role}</p>
-    {#if profile.classYear}
-      <p><strong>Class year:</strong> {profile.classYear}</p>
-    {/if}
-    {#if profile.linkedUin}
-      <p><strong>Linked UIN:</strong> {profile.linkedUin} (Former Student)</p>
-    {:else}
-      <p class="hint">To link your external account to an old Student UIN and transfer your history as FORMER_STUDENT, use <strong>Graduation Handover</strong>.</p>
-    {/if}
-    {#if profile.linkedInUrl}
-      <p><strong>LinkedIn:</strong> <a href={profile.linkedInUrl} target="_blank" rel="noopener noreferrer">{profile.linkedInUrl}</a></p>
+
+    {#if !profile.linkedUin && onGoToHandover}
+      <div class="link-banner">
+        <p><strong>Link your student record</strong></p>
+        <p class="hint">If you have a student UIN (9-digit ID), you can verify with it in Graduation Handover to connect this account to your student history.</p>
+        <button type="button" class="btn btn-primary" on:click={onGoToHandover}>Verify with UIN</button>
+      </div>
+    {:else if profile.linkedUin}
+      <div class="info-box success">
+        <p>Your account is linked to student UIN <strong>{profile.linkedUin}</strong>. Your student history is connected to this profile.</p>
+      </div>
     {/if}
 
-    {#if editMode}
-      <div class="edit-form">
-        <h3>Edit profile</h3>
-        {#if saveError}
-          <div class="alert alert-error">{saveError}</div>
+    <section class="profile-section">
+      <h3>Account information</h3>
+      <dl class="profile-dl">
+        <dt>Email</dt>
+        <dd>{profile.email}</dd>
+        <dt>Role</dt>
+        <dd>{profile.role} <span class="role-desc">({#if profile.role === 'PARTNER'}recruiter/partner{:else if profile.role === 'FORMER_STUDENT'}graduated student{:else}community member{/if})</span></dd>
+        {#if profile.classYear}
+          <dt>Class year</dt>
+          <dd>{profile.classYear}</dd>
         {/if}
-        <div class="form-group">
-          <label for="profile-class-year">Class year</label>
-          <input id="profile-class-year" type="text" bind:value={editClassYear} placeholder="e.g. 26" />
-        </div>
-        <div class="form-group">
-          <label for="profile-linkedin">LinkedIn URL</label>
-          <input id="profile-linkedin" type="url" bind:value={editLinkedInUrl} placeholder="https://linkedin.com/in/..." />
-        </div>
-        <button class="btn btn-primary" on:click={saveProfile} disabled={saveLoading}>{saveLoading ? 'Saving…' : 'Save'}</button>
-        <button class="btn btn-secondary" on:click={() => { editMode = false; saveError = ''; }}>Cancel</button>
-      </div>
-    {:else}
-      <button class="btn btn-secondary" style="margin-top: 0.5rem;" on:click={() => { editMode = true; editClassYear = profile.classYear || ''; editLinkedInUrl = profile.linkedInUrl || ''; saveError = ''; }}>Edit profile</button>
-    {/if}
+        {#if profile.linkedUin}
+          <dt>Linked student UIN</dt>
+          <dd>{profile.linkedUin}</dd>
+        {/if}
+      </dl>
+      {#if !profile.linkedUin}
+        <p class="hint">Go to <strong>Graduation Handover</strong> in the menu to link this account to your student record using your UIN.</p>
+      {/if}
+    </section>
 
     <button class="btn btn-secondary" style="margin-top: 1rem;" on:click={onLogout}>Log out</button>
   {/if}
 </div>
 
 <style>
+  .role-badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    background: var(--primary-color, #0066cc);
+    color: #fff;
+    border-radius: 999px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+  }
   .welcome-back {
     font-size: 1.1rem;
     color: var(--primary-color);
     margin-bottom: 1rem;
   }
-  .edit-form {
-    margin-top: 1rem;
-    padding-top: 1rem;
-    border-top: 1px solid var(--border-color, #ddd);
+  .link-banner {
+    padding: 1rem;
+    background: #e8f4fc;
+    border: 1px solid var(--primary-color, #0066cc);
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
   }
-  .edit-form .form-group {
-    margin-bottom: 0.75rem;
+  .link-banner .hint { margin: 0.25rem 0 0.75rem 0; }
+  .profile-section h3 {
+    font-size: 1rem;
+    margin: 0 0 0.5rem 0;
+    color: var(--text-muted, #666);
   }
-  .edit-form label {
-    display: block;
-    margin-bottom: 0.25rem;
+  .profile-dl {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.35rem 1.25rem;
+    margin: 0;
   }
-  .edit-form input {
-    width: 100%;
-    max-width: 320px;
-    padding: 0.5rem;
+  .profile-dl dt { font-weight: 600; color: var(--text-muted, #555); }
+  .profile-dl dd { margin: 0; }
+  .role-desc {
+    font-weight: normal;
+    color: var(--text-muted, #666);
+    font-size: 0.9rem;
+  }
+  .info-box.success {
+    background: #e8f5e9;
+    border: 1px solid #81c784;
+    margin-bottom: 1.25rem;
   }
 </style>

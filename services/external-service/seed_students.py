@@ -36,6 +36,21 @@ DUMMY_STUDENTS = [
         "class_year": "25",
         "tamu_email": "yashassuresh@tamu.edu",
     },
+    {
+        "uin": "012364790",
+        "grad_date": "2025-02-15",
+        "account_status": "STUDENT",
+        "personal_email": "test25@gmail.com",
+        "class_year": "25",
+    },
+    {
+        "uin": "112233445",
+        "grad_date": "2025-03-01",
+        "account_status": "STUDENT",
+        "personal_email": "shreya.rprakash@tamu.edu",
+        "class_year": "25",
+        "tamu_email": "shreya.rprakash@tamu.edu",
+    },
 ]
 
 def main():
