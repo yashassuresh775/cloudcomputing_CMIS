@@ -57,9 +57,32 @@ aws dynamodb batch-write-item --request-items "{
           \"tamu_email\": {\"S\": \"yashassuresh@tamu.edu\"}
         }
       }
+    },
+    {
+      \"PutRequest\": {
+        \"Item\": {
+          \"uin\": {\"S\": \"012364790\"},
+          \"grad_date\": {\"S\": \"2025-02-15\"},
+          \"account_status\": {\"S\": \"STUDENT\"},
+          \"personal_email\": {\"S\": \"test25@gmail.com\"},
+          \"class_year\": {\"S\": \"25\"}
+        }
+      }
+    },
+    {
+      \"PutRequest\": {
+        \"Item\": {
+          \"uin\": {\"S\": \"112233445\"},
+          \"grad_date\": {\"S\": \"2025-03-01\"},
+          \"account_status\": {\"S\": \"STUDENT\"},
+          \"personal_email\": {\"S\": \"shreya.rprakash@tamu.edu\"},
+          \"class_year\": {\"S\": \"25\"},
+          \"tamu_email\": {\"S\": \"shreya.rprakash@tamu.edu\"}
+        }
+      }
     }
   ]
 }"
 
-echo "Seeded 4 students (including yashassuresh775@gmail.com)."
+echo "Seeded 6 students (including shreya.rprakash@tamu.edu, test25@gmail.com, yashassuresh775@gmail.com)."
 echo "To trigger scan: aws lambda invoke --function-name cmis-external-external-service --cli-binary-format raw-in-base64-out --payload '{\"source\":\"aws.events\",\"detail-type\":\"Scheduled Event\"}' out.json && cat out.json"

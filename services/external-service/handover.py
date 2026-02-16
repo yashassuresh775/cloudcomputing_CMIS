@@ -83,3 +83,35 @@ def link_uin_to_user(
 
     updated = db.get_user_by_id(user_id)
     return {"user": updated, "message": "Graduation handover complete"}
+
+
+def lookup_student(user_id: str, uin: str) -> dict:
+    """
+    Look up student by UIN for handover verification (Step 1 of two-step flow).
+    Returns student profile for display; does not perform link.
+    """
+    existing = db.get_user_by_id(user_id)
+    if not existing:
+        return {"error": "User not found", "status": 404}
+    if existing.get("linked_uin"):
+        return {"error": "You have already linked a student account", "status": 409}
+    uin_clean = str(uin).strip()
+    if len(uin_clean) != 9 or not uin_clean.isdigit():
+        return {"error": "UIN must be exactly 9 digits", "status": 400}
+    other = db.get_user_by_linked_uin(uin_clean)
+    if other and other.get("user_id") != user_id:
+        return {"error": "This student account has already been claimed", "status": 409}
+    try:
+        student = students_table.get_item(Key={"uin": uin_clean}).get("Item")
+    except Exception as e:
+        return {"error": str(e), "status": 500}
+    if not student:
+        return {"error": "No student record found for this UIN", "status": 404}
+    return {
+        "studentProfile": {
+            "uin": student.get("uin"),
+            "gradDate": student.get("grad_date"),
+            "accountStatus": student.get("account_status"),
+        },
+        "message": "Please verify this is your student record",
+    }

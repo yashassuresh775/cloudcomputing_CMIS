@@ -39,11 +39,11 @@ def _parse_body(event: dict) -> dict:
 
 
 def _route(event: dict) -> tuple:
-    """Return (path_parts, method, body)."""
+    """Return (path_parts, method, body). HTTP API payload 2.0: path in rawPath or requestContext.http.path."""
     req = event.get("requestContext", {}) or {}
     http = req.get("http", {})
     method = (http.get("method") or event.get("httpMethod") or "GET").upper()
-    path = (http.get("path") or event.get("rawPath") or event.get("path") or "/").strip("/")
+    path = (event.get("rawPath") or http.get("path") or event.get("path") or "/").strip("/")
     path_parts = [p for p in path.split("/") if p]
     body = _parse_body(event)
     return path_parts, method, body
@@ -73,9 +73,6 @@ def do_signup(body: dict) -> dict:
 
     if not email or "@" not in email:
         return _response({"error": "Valid email is required"}, 400)
-    domain = email.split("@")[-1].lower()
-    if domain != "tamu.edu":
-        return _response({"error": "Registration requires a Texas A&M University email (@tamu.edu)"}, 400)
     if not password or len(password) < 10:
         return _response({"error": "Password must be at least 10 characters"}, 400)
 
@@ -277,6 +274,34 @@ def do_graduation_handover(event: dict, body: dict) -> dict:
     return _response(result)
 
 
+# ---------------------------------------------------------------------------
+# GET /graduation-handover/lookup?uin= - return student profile for verification (no link)
+# ---------------------------------------------------------------------------
+def do_handover_lookup(event: dict) -> dict:
+    token = auth.parse_token_from_header(event.get("headers") or {})
+    if not token:
+        return _response({"error": "Authorization required"}, 401)
+    try:
+        cognito_user = auth.get_user_by_token(token)
+    except Exception:
+        return _response({"error": "Invalid or expired token"}, 401)
+    sub = None
+    for attr in cognito_user.get("UserAttributes", []):
+        if attr["Name"] == "sub":
+            sub = attr["Value"]
+            break
+    if not sub:
+        return _response({"error": "User not found"}, 404)
+    query = event.get("queryStringParameters") or {}
+    uin = (query.get("uin") or "").strip()
+    if not uin:
+        return _response({"error": "UIN is required"}, 400)
+    result = handover.lookup_student(sub, uin)
+    if "error" in result:
+        return _response({"error": result["error"]}, result.get("status", 400))
+    return _response(result)
+
+
 def lambda_handler(event: dict, context: object) -> dict:
     # EventBridge scheduled invocation (graduation scan)
     if event.get("source") == "aws.events" or event.get("detail-type") == "Scheduled Event":
@@ -303,6 +328,10 @@ def lambda_handler(event: dict, context: object) -> dict:
     # GET /me
     if path_parts == ["me"] and method == "GET":
         return do_me(event)
+
+    # GET /graduation-handover/lookup?uin= - Step 1: find student record for verification (no link)
+    if path_parts == ["graduation-handover", "lookup"] and method == "GET":
+        return do_handover_lookup(event)
 
     # POST /graduation-handover
     if path_parts == ["graduation-handover"] and method == "POST":

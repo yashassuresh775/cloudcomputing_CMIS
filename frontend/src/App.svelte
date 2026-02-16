@@ -2,28 +2,73 @@
   import { onMount } from 'svelte';
   import Register from './views/Register.svelte';
   import Login from './views/Login.svelte';
+  import ForgotPassword from './views/ForgotPassword.svelte';
   import Handover from './views/Handover.svelte';
   import Profile from './views/Profile.svelte';
   import Claim from './views/Claim.svelte';
 
+  const VALID_VIEWS = ['login', 'register', 'profile', 'handover', 'forgot-password', 'claim'];
   let view = 'login';
   let claimToken = '';
 
-  onMount(() => {
-    const hash = (typeof window !== 'undefined' && window.location.hash) || '';
-    const search = (typeof window !== 'undefined' && window.location.search) || '';
-    const params = new URLSearchParams(hash.slice(1).split('?')[1] || search.slice(1));
-    const token = params.get('token');
-    if (token && (hash.includes('claim') || search.includes('token='))) {
-      claimToken = token;
-      view = 'claim';
-    }
-  });
   let accessToken = localStorage.getItem('accessToken') || '';
   let user = null;
 
   function setView(v) {
     view = v;
+    if (typeof window !== 'undefined' && VALID_VIEWS.includes(v) && v !== 'claim') {
+      window.location.hash = v;
+    }
+  }
+
+  function viewFromHash() {
+    if (typeof window === 'undefined') return 'login';
+    const hash = (window.location.hash || '').replace(/^#/, '').split('?')[0];
+    if (VALID_VIEWS.includes(hash)) return hash;
+    return accessToken ? 'profile' : 'login';
+  }
+
+  onMount(async () => {
+    const hash = (window.location.hash || '') || '';
+    const search = (window.location.search || '') || '';
+    const params = new URLSearchParams(hash.slice(1).split('?')[1] || search.slice(1));
+    const token = params.get('token');
+    if (token && (hash.includes('claim') || search.includes('token='))) {
+      claimToken = token;
+      view = 'claim';
+    } else {
+      if (accessToken) {
+        try {
+          const { me } = await import('./lib/api.js');
+          user = await me(accessToken);
+        } catch (_) {
+          accessToken = '';
+          localStorage.removeItem('accessToken');
+          localStorage.removeItem('refreshToken');
+        }
+      }
+      const fromHash = viewFromHash();
+      if (fromHash === 'profile' || fromHash === 'handover') {
+        view = accessToken ? fromHash : 'login';
+      } else {
+        view = fromHash;
+      }
+      if (view !== 'claim' && VALID_VIEWS.includes(view)) {
+        window.location.hash = view;
+      }
+    }
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  });
+
+  function handleHashChange() {
+    if (claimToken) return;
+    const fromHash = viewFromHash();
+    if (fromHash === 'profile' || fromHash === 'handover') {
+      view = accessToken ? fromHash : 'login';
+    } else {
+      view = fromHash;
+    }
   }
 
   function onLogin(payload) {
@@ -71,9 +116,9 @@
 <main>
   <div class="container">
     <h1>CMIS Engagement Platform</h1>
-    <p class="subtitle">External Core — Partner / Former Student / Friend</p>
+    <p class="subtitle">Sign in to manage your profile, link your student record with your UIN, and access engagement features.</p>
 
-    <nav class="nav-links">
+    <nav class="nav-links" aria-label="Main navigation">
       {#if accessToken}
         <button class="btn btn-secondary" on:click={() => setView('profile')}>Profile</button>
         <button class="btn btn-secondary" on:click={() => setView('handover')}>Graduation Handover</button>
@@ -86,14 +131,21 @@
 
     {#if view === 'claim'}
       <Claim token={claimToken} onSuccess={onClaimSuccess} onCancel={onClaimCancel} />
+    {:else if view === 'forgot-password'}
+      <ForgotPassword onBackToLogin={() => setView('login')} />
     {:else if view === 'register'}
       <Register onDone={onRegister} />
     {:else if view === 'login'}
-      <Login onLogin={onLogin} onGoToClaim={(token) => { claimToken = token; view = 'claim'; }} />
+      <Login
+        onLogin={onLogin}
+        onGoToClaim={(token) => { claimToken = token; view = 'claim'; }}
+        onGoToRegister={() => setView('register')}
+        onGoToForgotPassword={() => setView('forgot-password')}
+      />
     {:else if view === 'profile'}
-      <Profile {accessToken} {user} onLogout={onLogout} />
+      <Profile {accessToken} {user} onLogout={onLogout} onGoToHandover={() => setView('handover')} />
     {:else if view === 'handover'}
-      <Handover {accessToken} onDone={onHandoverDone} onCancel={() => setView('profile')} />
+      <Handover {accessToken} {user} onDone={onHandoverDone} onCancel={() => setView('profile')} />
     {/if}
   </div>
 </main>
