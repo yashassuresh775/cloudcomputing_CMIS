@@ -28,6 +28,12 @@ variable "cors_allow_origins" {
   default     = ["*"]
 }
 
+variable "admin_user_ids" {
+  description = "Cognito user IDs (sub) allowed to access admin endpoints (e.g. GET /graduation-handover/history). Comma-separated."
+  type        = string
+  default     = ""
+}
+
 variable "tags" {
   description = "Tags for all resources"
   type        = map(string)

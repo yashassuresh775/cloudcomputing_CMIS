@@ -221,6 +221,32 @@ resource "aws_dynamodb_table" "handover_tokens" {
 }
 
 # -----------------------------------------------------------------------------
+# DynamoDB - HandoverLog (audit: INITIATED | SUCCESS | FAILED, TTL 90 days)
+# -----------------------------------------------------------------------------
+resource "aws_dynamodb_table" "handover_log" {
+  name         = "${var.project_name}-handover-log"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "handover_id"
+  range_key    = "timestamp"
+
+  attribute {
+    name = "handover_id"
+    type = "S"
+  }
+  attribute {
+    name = "timestamp"
+    type = "S"
+  }
+
+  ttl {
+    attribute_name = "ttl_expiry"
+    enabled        = true
+  }
+
+  tags = var.tags
+}
+
+# -----------------------------------------------------------------------------
 # IAM role for External Service Lambda
 # -----------------------------------------------------------------------------
 resource "aws_iam_role" "external_lambda" {
@@ -268,7 +294,8 @@ resource "aws_iam_role_policy" "external_lambda" {
           "${aws_dynamodb_table.external_users.arn}/index/*",
           aws_dynamodb_table.students.arn,
           "${aws_dynamodb_table.students.arn}/index/*",
-          aws_dynamodb_table.handover_tokens.arn
+          aws_dynamodb_table.handover_tokens.arn,
+          aws_dynamodb_table.handover_log.arn
         ]
       },
       {
@@ -322,6 +349,8 @@ resource "aws_lambda_function" "external_service" {
       EXTERNAL_USERS_TABLE  = aws_dynamodb_table.external_users.name
       STUDENTS_TABLE        = aws_dynamodb_table.students.name
       HANDOVER_TOKENS_TABLE = aws_dynamodb_table.handover_tokens.name
+      HANDOVER_LOG_TABLE    = aws_dynamodb_table.handover_log.name
+      ADMIN_USER_IDS       = var.admin_user_ids
       COMPANY_LIST_API_URL  = var.company_list_api_url
       FRONTEND_BASE_URL     = var.frontend_base_url
       SES_VERIFIED_SENDER   = var.ses_verified_sender

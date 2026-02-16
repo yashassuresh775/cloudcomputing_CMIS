@@ -1,7 +1,9 @@
 """
 Lambda handler for External Service (Team Gig 'Em).
-Routes: POST /auth/signup, POST /auth/signin, GET /me, POST /graduation-handover,
-        GET/POST /graduation-handover/claim, EventBridge graduation scan.
+Routes: POST /auth/signup, POST /auth/signin, POST /auth/forgot-password, POST /auth/reset-password,
+        GET /me, PUT /me, POST /graduation-handover, GET /graduation-handover/history (admin),
+        GET/POST /graduation-handover/claim, POST /graduation-handover/request-link,
+        EventBridge graduation scan.
 """
 
 import json
@@ -11,12 +13,14 @@ import auth
 import db
 import role_engine
 import handover
+import handover_log
 import graduation_scan
 import graduation_claim
 
 USER_POOL_ID = os.environ.get("USER_POOL_ID")
 CLIENT_ID = os.environ.get("CLIENT_ID")
 EXTERNAL_USERS_TABLE = os.environ.get("EXTERNAL_USERS_TABLE")
+ADMIN_USER_IDS = set(x.strip() for x in os.environ.get("ADMIN_USER_IDS", "").split(",") if x.strip())
 
 
 def _response(body: dict, status: int = 200, cors: bool = True) -> dict:
@@ -124,6 +128,50 @@ def do_signup(body: dict) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# POST /auth/forgot-password - send reset code to email
+# Body: { "email" }
+# ---------------------------------------------------------------------------
+def do_forgot_password(body: dict) -> dict:
+    email = (body.get("email") or "").strip().lower()
+    if not email or "@" not in email:
+        return _response({"error": "Valid email is required"}, 400)
+    try:
+        auth.forgot_password(email)
+        return _response({"message": "If an account exists, a reset code was sent to your email."}, 200)
+    except auth.client.exceptions.UserNotFoundException:
+        return _response({"message": "If an account exists, a reset code was sent to your email."}, 200)
+    except auth.client.exceptions.InvalidParameterException as e:
+        return _response({"error": "Cannot reset password for this account", "detail": str(e)}, 400)
+    except Exception as e:
+        return _response({"error": "Request failed", "detail": str(e)}, 500)
+
+
+# ---------------------------------------------------------------------------
+# POST /auth/reset-password - set new password with code from email
+# Body: { "email", "code", "newPassword" }
+# ---------------------------------------------------------------------------
+def do_reset_password(body: dict) -> dict:
+    email = (body.get("email") or "").strip().lower()
+    code = (body.get("code") or "").strip()
+    new_password = body.get("newPassword") or ""
+    if not email or "@" not in email:
+        return _response({"error": "Valid email is required"}, 400)
+    if not code:
+        return _response({"error": "Reset code is required"}, 400)
+    if not new_password or len(new_password) < 10:
+        return _response({"error": "New password must be at least 10 characters"}, 400)
+    try:
+        auth.confirm_forgot_password(email, code, new_password)
+        return _response({"message": "Password has been reset. You can sign in with your new password."}, 200)
+    except auth.client.exceptions.CodeMismatchException:
+        return _response({"error": "Invalid or expired code"}, 400)
+    except auth.client.exceptions.ExpiredCodeException:
+        return _response({"error": "Code has expired. Request a new one."}, 400)
+    except Exception as e:
+        return _response({"error": "Reset failed", "detail": str(e)}, 500)
+
+
+# ---------------------------------------------------------------------------
 # POST /auth/signin
 # Body: { "email", "password" }
 # ---------------------------------------------------------------------------
@@ -219,6 +267,59 @@ def do_me(event: dict) -> dict:
         "role": user_record.get("role"),
         "classYear": user_record.get("class_year"),
         "linkedUin": user_record.get("linked_uin"),
+        "linkedInUrl": user_record.get("linked_in_url"),
+    })
+
+
+# ---------------------------------------------------------------------------
+# PUT /me - update profile (classYear, linkedInUrl)
+# ---------------------------------------------------------------------------
+def do_put_me(event: dict, body: dict) -> dict:
+    token = auth.parse_token_from_header(event.get("headers") or {})
+    if not token:
+        return _response({"error": "Authorization required"}, 401)
+    try:
+        cognito_user = auth.get_user_by_token(token)
+    except Exception:
+        return _response({"error": "Invalid or expired token"}, 401)
+
+    sub = None
+    email = None
+    for attr in cognito_user.get("UserAttributes", []):
+        if attr["Name"] == "sub":
+            sub = attr["Value"]
+        elif attr["Name"] == "email":
+            email = attr["Value"]
+    if not sub:
+        return _response({"error": "User not found"}, 404)
+
+    class_year = (body.get("classYear") or "").strip() or None
+    linked_in_url = (body.get("linkedInUrl") or "").strip() or None
+    if "classYear" not in body and "linkedInUrl" not in body:
+        return _response({"error": "Provide classYear and/or linkedInUrl to update"}, 400)
+
+    user_record = db.get_user_by_id(sub) or {}
+    try:
+        db.update_profile(sub, class_year=class_year, linked_in_url=linked_in_url)
+    except Exception as e:
+        return _response({"error": "Update failed", "detail": str(e)}, 500)
+
+    if class_year is not None and email:
+        auth.admin_set_custom_attributes(
+            username=email,
+            role=user_record.get("role") or "FRIEND",
+            class_year=class_year,
+            linked_uin=user_record.get("linked_uin"),
+        )
+
+    user_record = db.get_user_by_id(sub) or {}
+    return _response({
+        "userId": sub,
+        "email": user_record.get("email"),
+        "role": user_record.get("role"),
+        "classYear": user_record.get("class_year"),
+        "linkedUin": user_record.get("linked_uin"),
+        "linkedInUrl": user_record.get("linked_in_url"),
     })
 
 
@@ -245,6 +346,10 @@ def do_graduation_handover(event: dict, body: dict) -> dict:
     if not sub:
         return _response({"error": "User not found"}, 404)
 
+    user_record = db.get_user_by_id(sub)
+    if user_record and user_record.get("role") == "FORMER_STUDENT":
+        return _response({"error": "Already linked to a student UIN"}, 403)
+
     uin = (body.get("uin") or "").strip()
     class_year = (body.get("classYear") or "").strip() or None
     personal_email = (body.get("personalEmail") or "").strip().lower()
@@ -267,14 +372,44 @@ def do_graduation_handover(event: dict, body: dict) -> dict:
     except Exception as e:
         return _response({"error": "Password verification failed", "detail": str(e)}, 500)
 
+    personal_email_clean = (body.get("personalEmail") or "").strip().lower()
+    handover_id = handover_log.log_initiated(sub, uin, personal_email_clean or "")
+
     try:
         result = handover.link_uin_to_user(sub, uin, class_year, personal_email=personal_email)
     except Exception as e:
+        handover_log.log_failed(handover_id, sub, uin, reason=str(e))
         return _response({"error": "Handover failed", "detail": str(e)}, 500)
 
     if "error" in result:
+        handover_log.log_failed(handover_id, sub, uin, reason=result.get("error"))
         return _response({"error": result["error"]}, result.get("status", 400))
+    handover_log.log_success(handover_id, sub, uin)
     return _response(result)
+
+
+# ---------------------------------------------------------------------------
+# GET /graduation-handover/history - admin only (ADMIN_USER_IDS)
+# ---------------------------------------------------------------------------
+def do_handover_history(event: dict) -> dict:
+    token = auth.parse_token_from_header(event.get("headers") or {})
+    if not token:
+        return _response({"error": "Authorization required"}, 401)
+    try:
+        cognito_user = auth.get_user_by_token(token)
+    except Exception:
+        return _response({"error": "Invalid or expired token"}, 401)
+
+    sub = None
+    for attr in cognito_user.get("UserAttributes", []):
+        if attr["Name"] == "sub":
+            sub = attr["Value"]
+            break
+    if not sub or sub not in ADMIN_USER_IDS:
+        return _response({"error": "Forbidden"}, 403)
+
+    entries = handover_log.list_recent(limit=100)
+    return _response({"entries": entries})
 
 
 def lambda_handler(event: dict, context: object) -> dict:
@@ -296,6 +431,14 @@ def lambda_handler(event: dict, context: object) -> dict:
     if path_parts == ["auth", "signup"] and method == "POST":
         return do_signup(body)
 
+    # POST /auth/forgot-password
+    if path_parts == ["auth", "forgot-password"] and method == "POST":
+        return do_forgot_password(body)
+
+    # POST /auth/reset-password
+    if path_parts == ["auth", "reset-password"] and method == "POST":
+        return do_reset_password(body)
+
     # POST /auth/signin
     if path_parts == ["auth", "signin"] and method == "POST":
         return do_signin(body)
@@ -303,6 +446,14 @@ def lambda_handler(event: dict, context: object) -> dict:
     # GET /me
     if path_parts == ["me"] and method == "GET":
         return do_me(event)
+
+    # PUT /me
+    if path_parts == ["me"] and method == "PUT":
+        return do_put_me(event, body)
+
+    # GET /graduation-handover/history (admin)
+    if path_parts == ["graduation-handover", "history"] and method == "GET":
+        return do_handover_history(event)
 
     # POST /graduation-handover
     if path_parts == ["graduation-handover"] and method == "POST":

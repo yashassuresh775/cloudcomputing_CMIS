@@ -32,6 +32,34 @@ export async function signin({ email, password }) {
   return data;
 }
 
+/** Request password reset code (sent to email) */
+export async function forgotPassword(email) {
+  const res = await fetch(`${BASE}/auth/forgot-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: (email || '').trim().toLowerCase() }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Request failed');
+  return data;
+}
+
+/** Reset password with code from email */
+export async function resetPassword({ email, code, newPassword }) {
+  const res = await fetch(`${BASE}/auth/reset-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      email: (email || '').trim().toLowerCase(),
+      code: (code || '').trim(),
+      newPassword: newPassword || '',
+    }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Reset failed');
+  return data;
+}
+
 export async function me(accessToken) {
   const res = await fetch(`${BASE}/me`, {
     headers: { Authorization: `Bearer ${accessToken}` },
@@ -89,5 +117,33 @@ export async function claimWithPassword(token, password) {
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || 'Claim failed');
+  return data;
+}
+
+/** Update profile (classYear, linkedInUrl). PUT /me */
+export async function updateMe(accessToken, { classYear, linkedInUrl }) {
+  const res = await fetch(`${BASE}/me`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({
+      classYear: classYear || undefined,
+      linkedInUrl: linkedInUrl || undefined,
+    }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Update failed');
+  return data;
+}
+
+/** Admin: GET handover history. Returns { entries } */
+export async function handoverHistory(accessToken) {
+  const res = await fetch(`${BASE}/graduation-handover/history`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Failed to load history');
   return data;
 }

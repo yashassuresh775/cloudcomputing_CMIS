@@ -82,6 +82,24 @@ def get_user_by_token(access_token: str) -> Dict[str, Any]:
     return client.get_user(AccessToken=access_token)
 
 
+def forgot_password(username: str) -> Dict[str, Any]:
+    """Start forgot-password flow. Cognito sends code to user's verified email."""
+    return client.forgot_password(
+        ClientId=CLIENT_ID,
+        Username=username,
+    )
+
+
+def confirm_forgot_password(username: str, confirmation_code: str, new_password: str) -> None:
+    """Complete forgot-password with code from email and new password."""
+    client.confirm_forgot_password(
+        ClientId=CLIENT_ID,
+        Username=username,
+        ConfirmationCode=confirmation_code,
+        Password=new_password,
+    )
+
+
 def parse_token_from_header(headers: Optional[Dict[str, str]]) -> Optional[str]:
     """Extract Bearer token from Authorization header."""
     if not headers:

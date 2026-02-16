@@ -3,6 +3,7 @@
 
   export let onLogin = () => {};
   export let onGoToClaim = () => {};
+  export let onGoToForgotPassword = () => {};
 
   let email = '';
   let password = '';
@@ -89,6 +90,7 @@
 
 <div class="card">
   <h2>Log in</h2>
+  <p class="hint sso-note">Sign in with your @tamu.edu email. Use your CMIS account password (SSO is not used).</p>
   {#if error}
     <div class="alert alert-error">{error}</div>
   {/if}
@@ -104,6 +106,9 @@
     <button class="btn btn-primary" type="submit" disabled={loading}>
       {loading ? 'Signing in…' : 'Log in'}
     </button>
+    {#if onGoToForgotPassword}
+      <button type="button" class="btn btn-link" style="margin-left: 0.5rem;" on:click={onGoToForgotPassword}>Forgot password?</button>
+    {/if}
   </form>
 
   <div class="claim-section">
