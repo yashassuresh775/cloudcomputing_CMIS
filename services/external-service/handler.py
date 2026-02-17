@@ -1,7 +1,7 @@
 """
 Lambda handler for External Service (Team Gig 'Em).
-Routes: POST /auth/signup, POST /auth/signin, GET /me, POST /graduation-handover,
-        GET/POST /graduation-handover/claim, EventBridge graduation scan.
+Routes: POST /auth/signup, POST /auth/signin, POST /auth/forgot-password, POST /auth/reset-password,
+        GET /me, POST /graduation-handover, GET/POST /graduation-handover/claim, EventBridge graduation scan.
 """
 
 import json
@@ -166,6 +166,51 @@ def do_signin(body: dict) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# POST /auth/forgot-password - send reset code to user's email (Cognito)
+# Body: { "email" }
+# ---------------------------------------------------------------------------
+def do_forgot_password(body: dict) -> dict:
+    email = (body.get("email") or "").strip().lower()
+    if not email or "@" not in email:
+        return _response({"error": "Valid email is required"}, 400)
+    try:
+        auth.forgot_password(email)
+        return _response({"message": "If an account exists for this email, a reset code has been sent. Check your inbox."})
+    except auth.client.exceptions.UserNotFoundException:
+        # Don't reveal that the user doesn't exist
+        return _response({"message": "If an account exists for this email, a reset code has been sent. Check your inbox."})
+    except auth.client.exceptions.LimitExceededException:
+        return _response({"error": "Too many requests. Please try again later."}, 429)
+    except Exception as e:
+        return _response({"error": "Could not send reset code", "detail": str(e)}, 500)
+
+
+# ---------------------------------------------------------------------------
+# POST /auth/reset-password - set new password with code from email
+# Body: { "email", "code", "newPassword" }
+# ---------------------------------------------------------------------------
+def do_reset_password(body: dict) -> dict:
+    email = (body.get("email") or "").strip().lower()
+    code = (body.get("code") or "").strip()
+    new_password = body.get("newPassword") or ""
+    if not email or "@" not in email:
+        return _response({"error": "Valid email is required"}, 400)
+    if not code:
+        return _response({"error": "Reset code from your email is required"}, 400)
+    if not new_password or len(new_password) < 10:
+        return _response({"error": "New password must be at least 10 characters"}, 400)
+    try:
+        auth.confirm_forgot_password(email, code, new_password)
+        return _response({"message": "Password has been reset. You can sign in with your new password."})
+    except auth.client.exceptions.CodeMismatchException:
+        return _response({"error": "Invalid or expired reset code"}, 400)
+    except auth.client.exceptions.ExpiredCodeException:
+        return _response({"error": "Reset code has expired. Request a new one."}, 400)
+    except Exception as e:
+        return _response({"error": "Reset failed", "detail": str(e)}, 500)
+
+
+# ---------------------------------------------------------------------------
 # GET /me - current user from Bearer token
 # ---------------------------------------------------------------------------
 def do_me(event: dict) -> dict:
@@ -324,6 +369,14 @@ def lambda_handler(event: dict, context: object) -> dict:
     # POST /auth/signin
     if path_parts == ["auth", "signin"] and method == "POST":
         return do_signin(body)
+
+    # POST /auth/forgot-password - Cognito sends reset code to user's email
+    if path_parts == ["auth", "forgot-password"] and method == "POST":
+        return do_forgot_password(body)
+
+    # POST /auth/reset-password - complete reset with code from email + new password
+    if path_parts == ["auth", "reset-password"] and method == "POST":
+        return do_reset_password(body)
 
     # GET /me
     if path_parts == ["me"] and method == "GET":

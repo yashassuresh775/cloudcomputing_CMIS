@@ -125,21 +125,21 @@
     color: var(--text-muted, #666);
   }
   .password-requirements li.valid {
-    color: #0a0;
+    color: var(--success);
   }
-  .hint.valid { color: #0a0; }
-  .hint.invalid { color: #c00; }
+  .hint.valid { color: var(--success); }
+  .hint.invalid { color: var(--error); }
   .login-link { margin-top: 1rem; }
   .btn-link {
     background: none;
     border: none;
-    color: var(--primary-color, #0066cc);
+    color: var(--primary-color);
     cursor: pointer;
     padding: 0;
     font-size: inherit;
     text-decoration: underline;
   }
-  .btn-link:hover { opacity: 0.9; }
+  .btn-link:hover { opacity: 0.9; color: var(--primary-light); }
   .intro {
     color: var(--text-muted, #555);
     margin-bottom: 1.25rem;

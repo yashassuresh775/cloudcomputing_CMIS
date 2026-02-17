@@ -3,13 +3,15 @@
   import Register from './views/Register.svelte';
   import Login from './views/Login.svelte';
   import ForgotPassword from './views/ForgotPassword.svelte';
+  import ResetPassword from './views/ResetPassword.svelte';
   import Handover from './views/Handover.svelte';
   import Profile from './views/Profile.svelte';
   import Claim from './views/Claim.svelte';
 
-  const VALID_VIEWS = ['login', 'register', 'profile', 'handover', 'forgot-password', 'claim'];
+  const VALID_VIEWS = ['login', 'register', 'profile', 'handover', 'forgot-password', 'reset-password', 'claim'];
   let view = 'login';
   let claimToken = '';
+  let resetPasswordEmail = '';
 
   let accessToken = localStorage.getItem('accessToken') || '';
   let user = null;
@@ -115,10 +117,12 @@
 
 <main>
   <div class="container">
-    <h1>CMIS Engagement Platform</h1>
-    <p class="subtitle">Sign in to manage your profile, link your student record with your UIN, and access engagement features.</p>
-
-    <nav class="nav-links" aria-label="Main navigation">
+    <header class="page-header">
+      <div class="header-title">
+        <h1>CMIS Engagement Platform</h1>
+        <p class="subtitle">Sign in to manage your profile, link your student record with your UIN, and access engagement features.</p>
+      </div>
+      <nav class="nav-links" aria-label="Main navigation">
       {#if accessToken}
         <button class="btn btn-secondary" on:click={() => setView('profile')}>Profile</button>
         <button class="btn btn-secondary" on:click={() => setView('handover')}>Graduation Handover</button>
@@ -127,12 +131,22 @@
         <button class="btn btn-secondary" on:click={() => setView('login')}>Log in</button>
         <button class="btn btn-secondary" on:click={() => setView('register')}>Register</button>
       {/if}
-    </nav>
+      </nav>
+    </header>
 
     {#if view === 'claim'}
       <Claim token={claimToken} onSuccess={onClaimSuccess} onCancel={onClaimCancel} />
     {:else if view === 'forgot-password'}
-      <ForgotPassword onBackToLogin={() => setView('login')} />
+      <ForgotPassword
+        onBackToLogin={() => setView('login')}
+        onSentResetCode={(email) => { resetPasswordEmail = email; setView('reset-password'); }}
+      />
+    {:else if view === 'reset-password'}
+      <ResetPassword
+        emailPreFill={resetPasswordEmail}
+        onDone={() => { resetPasswordEmail = ''; setView('login'); }}
+        onBack={() => { resetPasswordEmail = ''; setView('login'); }}
+      />
     {:else if view === 'register'}
       <Register onDone={onRegister} />
     {:else if view === 'login'}

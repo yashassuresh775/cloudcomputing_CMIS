@@ -94,12 +94,14 @@
   .role-badge {
     display: inline-block;
     padding: 0.25rem 0.75rem;
-    background: var(--primary-color, #0066cc);
+    background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
     color: #fff;
     border-radius: 999px;
     font-size: 0.9rem;
     font-weight: 600;
     margin-bottom: 1rem;
+    box-shadow: 0 2px 8px rgba(80, 0, 0, 0.3);
+    animation: fadeInUp 0.4s cubic-bezier(0.22, 1, 0.36, 1) 0.1s backwards;
   }
   .welcome-back {
     font-size: 1.1rem;
@@ -108,10 +110,15 @@
   }
   .link-banner {
     padding: 1rem;
-    background: #e8f4fc;
-    border: 1px solid var(--primary-color, #0066cc);
+    background: linear-gradient(135deg, rgba(80, 0, 0, 0.08), rgba(80, 0, 0, 0.04));
+    border: 2px solid var(--primary-color);
     border-radius: 8px;
     margin-bottom: 1.5rem;
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+  }
+  .link-banner:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(80, 0, 0, 0.12);
   }
   .link-banner .hint { margin: 0.25rem 0 0.75rem 0; }
   .profile-section h3 {
@@ -133,8 +140,9 @@
     font-size: 0.9rem;
   }
   .info-box.success {
-    background: #e8f5e9;
-    border: 1px solid #81c784;
+    background: linear-gradient(135deg, rgba(10, 107, 10, 0.1), rgba(10, 107, 10, 0.06));
+    border: 2px solid var(--success);
     margin-bottom: 1.25rem;
+    animation: fadeIn 0.4s ease-out 0.2s backwards;
   }
 </style>

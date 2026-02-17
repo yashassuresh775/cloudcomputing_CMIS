@@ -223,10 +223,12 @@
   }
   .info-box {
     padding: 1rem;
-    background: #f0f7ff;
+    background: linear-gradient(135deg, rgba(80, 0, 0, 0.06), rgba(122, 0, 0, 0.04));
     border-radius: 8px;
+    border-left: 4px solid var(--primary-color);
     margin-bottom: 1.25rem;
     font-size: 0.95rem;
+    animation: fadeIn 0.4s ease-out 0.15s backwards;
   }
   .info-box p { margin: 0 0 0.5rem 0; }
   .info-box p:last-child { margin-bottom: 0; }

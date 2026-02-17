@@ -6,16 +6,17 @@ Monorepo for the CMIS Engagement Platform (ISTM 665). This folder contains **Sec
 
 Implements:
 
-- **External Auth:** Email/password login via AWS Cognito User Pool.
+- **External Auth:** Email/password login via AWS Cognito User Pool. **Forgot password** and **reset password** (Cognito code-by-email flow).
 
+- **Registration:** Any valid email (no @tamu.edu required). Password: 10+ characters with uppercase, lowercase, number, and special character. Optional “Former Student” + class year.
 - **Role Logic Engine:** On registration, assigns PARTNER (email domain in Company List), FORMER_STUDENT (former student box + class year), or FRIEND.
-- **Graduation Handover:** Flow to link a new external account to an old Student UIN, transferring history and changing primary role to FORMER_STUDENT.
+- **Graduation Handover:** Two-step flow: (1) verify UIN via lookup (returns student profile, no link); (2) confirm with personal email and password to link account, transferring history and setting role to FORMER_STUDENT.
 
 ### Stack
 
 - **Infrastructure:** Terraform (Cognito, DynamoDB, Lambda, API Gateway HTTP API)
 - **Backend:** Python 3.12 Lambda (`/services/external-service`)
-- **Frontend:** Svelte + Vite (`/frontend`), themed with CSS variables
+- **Frontend:** Svelte + Vite (`/frontend`), themed with CSS variables. Hash routing (login, register, profile, handover, forgot-password, claim). Forgot Password and Reset Password flows; Graduation Handover two-step verify-then-link flow.
 
 ### AWS Architecture
 
@@ -33,14 +34,14 @@ Implements:
                                 ▼
 ┌───────────────────────────────────────────────────────────────────┐
 │                    Lambda (external-service)                       │
-└───┬──────────┬──────────┬──────────┬──────────────┬───────────────┘
-    │          │          │          │              │
-    ▼          ▼          ▼          ▼              ▼
-┌───────┐ ┌─────────────┐ ┌────────────┐ ┌───────────────┐ ┌─────────┐
-│Cognito│ │DynamoDB     │ │DynamoDB    │ │DynamoDB       │ │   SES   │
-│User   │ │external_    │ │students    │ │handover_      │ │(optional│
-│Pool   │ │users        │ │            │ │tokens         │ │)        │
-└───────┘ └─────────────┘ └────────────┘ └───────────────┘ └─────────┘
+└───┬──────────┬──────────┬──────────┬──────────────┬────────┬───────┘
+    │          │          │          │              │        │
+    ▼          ▼          ▼          ▼              ▼        ▼
+┌───────┐ ┌─────────────┐ ┌────────────┐ ┌───────────────┐ ┌────────────┐ ┌─────────┐
+│Cognito│ │DynamoDB    │ │DynamoDB    │ │DynamoDB       │ │DynamoDB    │ │   SES   │
+│User   │ │external_   │ │students    │ │handover_      │ │handover_   │ │(optional│
+│Pool   │ │users       │ │            │ │tokens         │ │log         │ │)        │
+└───────┘ └────────────┘ └────────────┘ └───────────────┘ └────────────┘ └─────────┘
 
 ┌───────────────────────────────────────────────────────────────────┐
 │  EventBridge (cron: 1st of month, 08:00 UTC) → Lambda              │
@@ -50,18 +51,22 @@ Implements:
 | Flow | Path |
 |------|------|
 | **Auth** | Browser → API Gateway → Lambda → Cognito + external_users |
+| **Forgot / Reset password** | Browser → API Gateway → Lambda → Cognito (code to email, confirm with new password) |
 | **Profile (/me)** | Browser + token → API Gateway → Lambda → Cognito + external_users |
+| **Handover lookup** | Browser + token → API Gateway → Lambda → students (verify UIN, no link) |
+| **Handover link** | Browser + token → API Gateway → Lambda → students + external_users (link UIN) |
 | **Graduation scan** | EventBridge → Lambda → students → handover_tokens → SES/CloudWatch |
 | **Claim (magic link)** | Browser → API Gateway → Lambda → handover_tokens + Cognito + external_users → SES |
 
 | Component | Purpose |
 |-----------|---------|
 | **API Gateway** | Entry point; all routes proxy to Lambda |
-| **Lambda** | Central backend; auth, handover, claim, graduation scan |
-| **Cognito** | User auth (signup, signin, JWT validation) |
+| **Lambda** | Central backend; auth, forgot/reset password, handover lookup/link, claim, graduation scan |
+| **Cognito** | User auth (signup, signin, forgot password, JWT validation) |
 | **DynamoDB external_users** | User profiles (email, role, linked UIN) |
 | **DynamoDB students** | Eligible graduates (uin, grad_date, personal_email) |
 | **DynamoDB handover_tokens** | Magic-link tokens with TTL |
+| **DynamoDB handover_log** | Audit log for handover events (TTL 90 days) |
 | **EventBridge** | Monthly trigger for graduation scan |
 | **SES** | Magic-link & confirmation emails (optional) |
 
@@ -110,10 +115,13 @@ Shutdown runs `terraform destroy`. Restart runs `terraform apply`, seeds student
 
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/auth/signup` | Register (body: `email`, `password`, `formerStudent`, `classYear`). Email must be @tamu.edu. |
+| POST | `/auth/signup` | Register (body: `email`, `password`, `formerStudent`, `classYear`). Any valid email; password: 10+ chars, upper, lower, number, special. |
 | POST | `/auth/signin` | Sign in (body: `email`, `password`) |
+| POST | `/auth/forgot-password` | Request reset code (body: `email`); Cognito sends code to verified email |
+| POST | `/auth/reset-password` | Complete reset (body: `email`, `code`, `newPassword`) |
 | GET | `/me` | Current user (header: `Authorization: Bearer <accessToken>`) |
-| POST | `/graduation-handover` | Link external account to Student UIN, transfer history, set role to FORMER_STUDENT (auth required; body: `uin`, `personalEmail`, `password`, optional `classYear`) |
+| GET | `/graduation-handover/lookup?uin=` | Step 1: verify UIN, return student profile for confirmation (auth required; no link) |
+| POST | `/graduation-handover` | Step 2: link external account to Student UIN (auth required; body: `uin`, `personalEmail`, `password`, optional `classYear`) |
 | POST | `/graduation-handover/request-link` | Request magic link by email (body: `email`); self-service from UI |
 | GET | `/graduation-handover/claim?token=...` | Validate magic-link token; returns `email`, `uin`, `classYear` |
 | POST | `/graduation-handover/claim` | Complete claim with `token` and `password` (creates account, links UIN) |
@@ -152,7 +160,7 @@ To send magic links by email:
 #### Testing with dummy data
 
 ```bash
-# After terraform apply, seed students (includes test record for yashassuresh775@gmail.com)
+# After terraform apply, seed students (6 records: shreya.rprakash@tamu.edu, test25@gmail.com, yashassuresh775@gmail.com, etc.)
 ./scripts/seed-students.sh
 
 # Trigger scan manually (simulates EventBridge)
@@ -160,6 +168,8 @@ aws lambda invoke --function-name cmis-external-external-service \
   --cli-binary-format raw-in-base64-out \
   --payload '{"source":"aws.events","detail-type":"Scheduled Event"}' out.json && cat out.json
 ```
+
+Alternatively, seed via Python (with `STUDENTS_TABLE` set): `cd services/external-service && python seed_students.py`.
 
 - **With SES:** Check the recipient inbox for the magic link.
 - **Without SES:** Magic links are logged in CloudWatch (`/aws/lambda/cmis-external-external-service`). Copy the URL and open in the browser (e.g. `http://localhost:5173/#claim?token=...`).

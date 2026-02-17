@@ -4,6 +4,8 @@
 
   export let onDone = () => {};
   export let onBack = () => {};
+  /** Pre-filled when coming from Forgot Password flow */
+  export let emailPreFill = '';
 
   let email = '';
   let code = '';
@@ -14,9 +16,14 @@
   let success = '';
 
   onMount(() => {
-    const params = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
-    email = params.get('email') || '';
-    code = params.get('code') || '';
+    if (emailPreFill) email = emailPreFill;
+    if (typeof window !== 'undefined') {
+      const hash = window.location.hash || '';
+      const q = hash.indexOf('?');
+      const params = new URLSearchParams(q >= 0 ? hash.slice(q + 1) : (window.location.search || '').slice(1));
+      if (!email) email = params.get('email') || '';
+      if (!code) code = params.get('code') || '';
+    }
   });
 
   async function submitReset() {

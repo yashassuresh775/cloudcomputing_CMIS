@@ -213,17 +213,18 @@
     font-size: 0.9rem;
   }
   .step {
-    color: var(--text-muted, #666);
+    color: var(--text-muted);
+    transition: color 0.25s ease, transform 0.2s ease;
   }
   .step.active {
     font-weight: 600;
-    color: var(--primary-color, #0066cc);
+    color: var(--primary-color);
   }
   .step.done {
-    color: #0a0;
+    color: var(--success);
   }
   .step-sep {
-    color: var(--text-muted, #999);
+    color: var(--text-muted);
     margin: 0 0.25rem;
   }
   .verify-box {
@@ -240,12 +241,13 @@
   .security-notice {
     margin: 1rem 0;
     padding: 0.75rem;
-    background: #fff9e6;
-    border-left: 4px solid #b8860b;
+    background: linear-gradient(90deg, rgba(184, 134, 11, 0.12), transparent);
+    border-left: 4px solid var(--warning);
     font-size: 0.9rem;
+    animation: fadeIn 0.35s ease-out backwards;
   }
   .security-notice.bottom { margin-top: 1.5rem; }
-  .confirm-form { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-color, #ddd); }
+  .confirm-form { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border); }
   .button-row { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1rem; }
   .intro {
     margin-bottom: 1rem;
@@ -255,14 +257,21 @@
   .info-details {
     margin-bottom: 1.25rem;
     padding: 0.75rem 1rem;
-    background: #f5f9ff;
+    background: linear-gradient(135deg, rgba(80, 0, 0, 0.06), rgba(80, 0, 0, 0.03));
     border-radius: 8px;
-    border: 1px solid #d0e0f5;
+    border: 1px solid rgba(80, 0, 0, 0.2);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  .info-details[open] {
+    box-shadow: 0 2px 8px rgba(80, 0, 0, 0.08);
   }
   .info-details summary {
     cursor: pointer;
     font-weight: 600;
-    color: var(--primary-color, #0066cc);
+    color: var(--primary-color);
+  }
+  .info-details summary:hover {
+    color: var(--primary-light);
   }
   .info-details p {
     margin: 0.5rem 0 0 0;
@@ -276,7 +285,12 @@
   .success-step p { margin-bottom: 1rem; }
   .verifying-msg {
     margin: 0.5rem 0;
-    color: var(--primary-color, #0066cc);
+    color: var(--primary-color);
     font-weight: 500;
+    animation: verifyingPulse 1.2s ease-in-out infinite;
+  }
+  @keyframes verifyingPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
   }
 </style>
