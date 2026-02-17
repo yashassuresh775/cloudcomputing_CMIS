@@ -1,6 +1,12 @@
 # CMIS Engagement Platform - Shared Infrastructure
 # Team Gig 'Em: External Core - Cognito, DynamoDB, Lambda, API Gateway
 
+variable "admin_user_ids" {
+  description = "Cognito user IDs (sub) allowed to access admin endpoints (e.g. GET /graduation-handover/history). Comma-separated."
+  type        = string
+  default     = ""
+}
+
 variable "ses_verified_sender" {
   description = "SES verified sender email for magic-link notifications. Leave empty to log links to CloudWatch."
   type        = string
