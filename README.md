@@ -111,6 +111,15 @@ Shutdown runs `terraform destroy`. Restart runs `terraform apply`, seeds student
 
    Role logic expects an optional Company List API. If `COMPANY_LIST_API_URL` is not set, the Lambda uses a stub list (`acme.com`, `partner.org`, `example.com`). Set the env var in Terraform (`variables.tf` / `terraform.tfvars`) when Howdy's API is available.
 
+#### Frontend hosting (off by default — turn on when the project is ready)
+
+Hosting (S3 + CloudFront, optional custom domain) is **disabled by default**. No S3 or CloudFront resources are created until you turn it on.
+
+- **To leave it off:** Do nothing. Use local dev (`npm run dev`) and `frontend_base_url = "http://localhost:5173"` as today.
+- **To turn it on later:** Set `enable_frontend_hosting = true` in Terraform (e.g. in `terraform.tfvars` or `-var="enable_frontend_hosting=true"`), then run `terraform apply`. After that you can run `./scripts/deploy-frontend.sh` to build and upload the frontend.
+
+Optional (only when hosting is enabled): `frontend_domain` (e.g. `app.teamgigem.com`), `route53_zone_id` for a custom domain and ACM validation.
+
 ### API (External Service)
 
 | Method | Path | Description |

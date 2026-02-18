@@ -17,9 +17,28 @@ variable "company_list_api_url" {
 }
 
 variable "frontend_base_url" {
-  description = "Frontend base URL for magic-link claim (e.g. https://app.example.com or http://localhost:5173)"
+  description = "Frontend base URL for magic-link claim (e.g. https://app.example.com or http://localhost:5173). Set to CloudFront URL or custom domain after hosting."
   type        = string
   default     = "http://localhost:5173"
+}
+
+# --- Frontend hosting (off by default; turn on when project is ready) ---
+variable "enable_frontend_hosting" {
+  description = "Set to true to create S3 + CloudFront (and optional custom domain) for hosting the frontend. Off by default until the project is ready."
+  type        = bool
+  default     = false
+}
+
+variable "frontend_domain" {
+  description = "Custom domain for the frontend (e.g. app.teamgigem.com). Only used when enable_frontend_hosting is true. Leave empty to use CloudFront URL only."
+  type        = string
+  default     = ""
+}
+
+variable "route53_zone_id" {
+  description = "Route 53 hosted zone ID for frontend_domain (to create A record). Leave empty if you manage DNS elsewhere."
+  type        = string
+  default     = ""
 }
 
 variable "cors_allow_origins" {

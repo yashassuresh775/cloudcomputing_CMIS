@@ -32,6 +32,12 @@ provider "aws" {
   region = var.aws_region
 }
 
+# ACM for CloudFront must be in us-east-1 (only used when frontend_domain is set)
+provider "aws" {
+  alias  = "acm"
+  region = "us-east-1"
+}
+
 # -----------------------------------------------------------------------------
 # Cognito User Pool - Email/Password for External (Partner/Former Student/Friend)
 # -----------------------------------------------------------------------------
