@@ -62,7 +62,7 @@
   {#if error}
     <div class="alert alert-error">{error}</div>
   {/if}
-  <form on:submit|preventDefault={handleSubmit}>
+  <form class="form-block" on:submit|preventDefault={handleSubmit}>
     <h3 class="form-section-title">Account details</h3>
     <div class="form-group">
       <label for="reg-email">Email</label>
@@ -87,6 +87,7 @@
         <span class="hint {passwordsMatch ? 'valid' : 'invalid'}">{passwordsMatch ? '✓ Passwords match' : 'Passwords do not match'}</span>
       {/if}
     </div>
+    <div class="section-divider" aria-hidden="true"></div>
     <h3 class="form-section-title">Role (optional)</h3>
     <div class="checkbox-group">
       <input id="former" type="checkbox" bind:checked={formerStudent} />
@@ -148,9 +149,20 @@
   }
   .form-section-title {
     font-size: 1rem;
+    font-weight: 600;
     margin: 1.25rem 0 0.5rem 0;
-    color: var(--text-color, #333);
+    color: var(--text);
   }
   .form-section-title:first-of-type { margin-top: 0; }
+  .section-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 1.5rem 0 0;
+  }
   .role-hint { margin-top: 0.25rem; margin-bottom: 0; }
+  .form-block {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+  }
 </style>

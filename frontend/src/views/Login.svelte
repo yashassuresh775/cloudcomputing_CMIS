@@ -99,25 +99,27 @@
   {#if error}
     <div class="alert alert-error">{error}</div>
   {/if}
-  <form on:submit|preventDefault={handleSubmit}>
+  <form class="form-block" on:submit|preventDefault={handleSubmit}>
     <div class="form-group">
       <label for="login-email">Email</label>
-      <input id="login-email" type="email" bind:value={email} required />
+      <input id="login-email" type="email" bind:value={email} required placeholder="you@example.com" />
     </div>
     <div class="form-group">
       <label for="login-password">Password</label>
-      <input id="login-password" type="password" bind:value={password} required />
+      <input id="login-password" type="password" bind:value={password} required placeholder="Your password" />
     </div>
     <div class="form-group remember-row">
       <input id="remember" type="checkbox" bind:checked={rememberMe} />
       <label for="remember">Remember me</label>
     </div>
-    <button class="btn btn-primary" type="submit" disabled={loading}>
-      {loading ? 'Signing in…' : 'Log in'}
-    </button>
-    {#if onGoToForgotPassword}
-      <button type="button" class="btn btn-link" on:click={onGoToForgotPassword}>Forgot password?</button>
-    {/if}
+    <div class="form-actions">
+      <button class="btn btn-primary" type="submit" disabled={loading}>
+        {loading ? 'Signing in…' : 'Log in'}
+      </button>
+      {#if onGoToForgotPassword}
+        <button type="button" class="btn btn-link" on:click={onGoToForgotPassword}>Forgot password?</button>
+      {/if}
+    </div>
   </form>
   {#if onGoToRegister}
     <p class="register-link">Don't have an account? <button type="button" class="btn btn-link" on:click={onGoToRegister}>Register</button></p>
@@ -179,15 +181,33 @@
 </div>
 
 <style>
+  .form-block {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+  }
+  .form-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem 1rem;
+    margin-top: 0.25rem;
+  }
   .claim-section {
     margin-top: 1.5rem;
-    padding-top: 1rem;
-    border-top: 1px solid var(--border-color, #ddd);
+    padding: 1.25rem 0 0;
+    border-top: 1px solid var(--border);
   }
   .claim-heading {
     font-size: 1rem;
-    margin: 0 0 0.25rem 0;
-    color: var(--text-color, #333);
+    font-weight: 600;
+    margin: 0 0 0.35rem 0;
+    color: var(--text);
+  }
+  .claim-section .hint {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    margin-bottom: 0.75rem;
   }
   .claim-input-row {
     display: flex;
@@ -198,9 +218,16 @@
   .claim-token-input {
     flex: 1;
     min-width: 200px;
-    padding: 0.5rem;
-    border: 1px solid var(--border-color, #ddd);
-    border-radius: 4px;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-size: 1rem;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+  .claim-token-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(80, 0, 0, 0.15);
   }
   .claim-cta {
     margin: 0.5rem 0;
@@ -208,12 +235,12 @@
   .claim-paste {
     margin-top: 1rem;
     padding-top: 0.75rem;
-    border-top: 1px dashed var(--border-color, #ddd);
+    border-top: 1px dashed var(--border);
   }
   .btn-link {
     background: none;
     border: none;
-    color: var(--primary-color, #0066cc);
+    color: var(--primary-color);
     cursor: pointer;
     padding: 0.25rem 0;
     font-size: 0.95rem;
@@ -224,7 +251,7 @@
   .info-box {
     padding: 1rem;
     background: linear-gradient(135deg, rgba(80, 0, 0, 0.06), rgba(122, 0, 0, 0.04));
-    border-radius: 8px;
+    border-radius: var(--radius);
     border-left: 4px solid var(--primary-color);
     margin-bottom: 1.25rem;
     font-size: 0.95rem;
@@ -234,7 +261,7 @@
   .info-box p:last-child { margin-bottom: 0; }
   .sso-note {
     margin-top: 0.5rem;
-    color: var(--text-muted, #555);
+    color: var(--text-muted);
     font-size: 0.9rem;
   }
   .remember-row {
@@ -243,5 +270,5 @@
     gap: 0.5rem;
   }
   .remember-row label { margin: 0; }
-  .register-link { margin-top: 1rem; }
+  .register-link { margin-top: 1rem; font-size: 0.95rem; }
 </style>
