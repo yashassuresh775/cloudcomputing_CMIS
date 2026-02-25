@@ -38,11 +38,13 @@
     <div class="alert alert-success">
       <strong>Check your email.</strong> We sent a reset code to <strong>{email.trim().toLowerCase()}</strong>. Use the code on the next screen to set your new password.
     </div>
-    <button type="button" class="btn btn-primary" on:click={() => onSentResetCode(email.trim().toLowerCase())}>
-      Set new password
-    </button>
+    <div class="form-actions">
+      <button type="button" class="btn btn-primary" on:click={() => onSentResetCode(email.trim().toLowerCase())}>
+        Set new password
+      </button>
+    </div>
   {:else}
-    <form on:submit|preventDefault={sendResetCode}>
+    <form class="form-block" on:submit|preventDefault={sendResetCode}>
       {#if error}
         <div class="alert alert-error">{error}</div>
       {/if}
@@ -63,9 +65,11 @@
     </form>
   {/if}
 
-  <button type="button" class="btn btn-link" style="margin-top: 1rem;" on:click={onBackToLogin}>
-    Back to Log in
-  </button>
+  <p class="back-row">
+    <button type="button" class="btn btn-link" on:click={onBackToLogin}>
+      ← Back to Log in
+    </button>
+  </p>
 </div>
 
 <style>
@@ -73,15 +77,28 @@
     margin-bottom: 1.25rem;
     line-height: 1.5;
     color: var(--text-muted);
-  }
-  .info-box {
-    padding: 1rem;
-    background: linear-gradient(135deg, rgba(80, 0, 0, 0.06), rgba(122, 0, 0, 0.04));
-    border-left: 4px solid var(--primary-color);
-    border-radius: 8px;
-    margin-bottom: 1.25rem;
     font-size: 0.95rem;
-    animation: fadeIn 0.4s ease-out 0.15s backwards;
   }
-  .info-box p { margin: 0; }
+  .form-block {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+  }
+  .form-actions {
+    margin-top: 0.25rem;
+  }
+  .back-row {
+    margin: 1.25rem 0 0;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+  }
+  .btn-link {
+    background: none;
+    border: none;
+    color: var(--primary-color);
+    cursor: pointer;
+    padding: 0.25rem 0;
+    font-size: 0.95rem;
+  }
+  .btn-link:hover { text-decoration: underline; }
 </style>
